@@ -8,15 +8,30 @@ import asyncio
 import datetime
 import re
 from datetime import datetime, timedelta
+from typing import Optional, Dict, Set, Tuple
+from discord.ui import Button, View
 
+# Load environment variables and setup logging
 load_dotenv()
 token = os.getenv("DISCORD_TOKEN")
+if not token:
+    raise ValueError("DISCORD_TOKEN not found in .env file")
+
 handler = logging.FileHandler(filename="discord.log", encoding="utf-8", mode="w")
+# Update intents
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
+intents.guild_messages = True
+intents.guilds = True
 
-bot= commands.Bot(command_prefix="!", intents=intents)
+class ChainBot(commands.Bot):
+    def __init__(self):
+        super().__init__(command_prefix="!", intents=intents)
+        # Store active chains and their timers
+        self.active_chains = {}
+
+bot = ChainBot()
 
 @bot.event
 async def on_ready():
@@ -31,7 +46,6 @@ async def on_ready():
 async def on_member_join(member):
     await member.send(f"Welcome to the server {member.mention}!")
 
-
 @bot.event
 async def on_message(message):
     if message.author == bot.user:
@@ -43,51 +57,91 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
-# /hello
+# Slash Commands
 @bot.tree.command(name="hello", description="Say hello!")
+@app_commands.guild_only()
 async def hello(interaction: discord.Interaction):
     await interaction.response.send_message(f"Hello {interaction.user.mention}!")
 
-@bot.tree.command(name="assign", description="Assign yourself the test role")
-async def assign(interaction: discord.Interaction):
-    role = discord.utils.get(interaction.guild.roles, name="test")
-    if role:
-        await interaction.user.add_roles(role)
-        await interaction.response.send_message(f"You have been assigned the {role.name} role {interaction.user.mention}!")
-    else:
-        await interaction.response.send_message("Role not found")
+@bot.tree.command(name="setnick", description="Set your nickname in the format: name [ID]")
+@app_commands.describe(
+    name="Your name (e.g., batfrog)",
+    user_id="Your ID number (e.g., 3636117)"
+)
+@app_commands.guild_only()
+async def setnick(interaction: discord.Interaction, name: str, user_id: str):
+    if not interaction.guild:
+        await interaction.response.send_message("This command can only be used in a server!", ephemeral=True)
+        return
 
-@bot.tree.command(name="remove", description="Remove yourself from the test role")
-async def remove(interaction: discord.Interaction):
-    role = discord.utils.get(interaction.guild.roles, name="test")
-    if role:
-        await interaction.user.remove_roles(role)
-        await interaction.response.send_message(f"You have been removed from the {role.name} role {interaction.user.mention}!")
-    else:
-        await interaction.response.send_message("Role not found")
+    # Get the member object
+    member = interaction.guild.get_member(interaction.user.id)
+    if not member:
+        await interaction.response.send_message("Could not find your member info", ephemeral=True)
+        return
 
-@bot.tree.command(name="test", description="Test command for users with test role")
-async def test(interaction: discord.Interaction):
-    role = discord.utils.get(interaction.guild.roles, name="test")
-    if role in interaction.user.roles:
-        await interaction.response.send_message(f"Hello {interaction.user.mention}!")
-    else:
-        await interaction.response.send_message(f"You do not have permission to use this command {interaction.user.mention}!", ephemeral=True)
+    # Check if bot has permission to manage nicknames
+    bot_member = interaction.guild.get_member(bot.user.id)
+    if not bot_member or not bot_member.guild_permissions.manage_nicknames:
+        await interaction.response.send_message(
+            "❌ I need the 'Manage Nicknames' permission to do this! Please ask a server admin to grant me this permission.",
+            ephemeral=True
+        )
+        return
+
+    try:
+        # Format the nickname
+        new_nickname = f"{name} [{user_id}]"
+        
+        # Check if nickname is too long (Discord limit is 32 characters)
+        if len(new_nickname) > 32:
+            await interaction.response.send_message(
+                "❌ Nickname is too long! Please use a shorter name or ID.",
+                ephemeral=True
+            )
+            return
+        
+        # Change the nickname
+        await member.edit(nick=new_nickname)
+        await interaction.response.send_message(
+            f"✅ Your nickname has been set to: {new_nickname}",
+            ephemeral=True
+        )
+    except discord.Forbidden:
+        await interaction.response.send_message(
+            "❌ I don't have permission to change nicknames! The server role hierarchy might be preventing me.",
+            ephemeral=True
+        )
+    except Exception as e:
+        await interaction.response.send_message(
+            "An error occurred while changing your nickname.",
+            ephemeral=True
+        )
+        logging.error(f"Nickname change error: {e}")
 
 @bot.tree.command(name="dm", description="Send yourself a DM with your message")
 @app_commands.describe(message="The message to send to yourself")
 async def dm(interaction: discord.Interaction, message: str):
-    await interaction.user.send(f"you said {message}")
-    await interaction.response.send_message("Message sent to your DMs!", ephemeral=True)
-
-@bot.tree.command(name="reply", description="Bot sends a reply message")
-async def reply(interaction: discord.Interaction):
-    await interaction.response.send_message("this is a reply")
+    try:
+        await interaction.user.send(f"You said: {message}")
+        await interaction.response.send_message("Message sent to your DMs!", ephemeral=True)
+    except discord.Forbidden:
+        await interaction.response.send_message(
+            "I couldn't send you a DM. Please check if you have DMs enabled.",
+            ephemeral=True
+        )
 
 @bot.tree.command(name="poll", description="Create a poll with yes/no voting")
 @app_commands.describe(question="The question to ask in the poll")
+@app_commands.guild_only()
 async def poll(interaction: discord.Interaction, question: str):
-    # Create an embed for the poll
+    if not isinstance(interaction.channel, (discord.TextChannel, discord.Thread)):
+        await interaction.response.send_message(
+            "Polls can only be created in text channels or threads!",
+            ephemeral=True
+        )
+        return
+
     embed = discord.Embed(
         title="📊 Poll",
         description=question,
@@ -95,27 +149,22 @@ async def poll(interaction: discord.Interaction, question: str):
     )
     embed.set_footer(text=f"Poll started by {interaction.user.name} • React with ✅ or ❌ to vote")
     
-    # Send the embed and add reactions
     await interaction.response.send_message(embed=embed)
     poll_message = await interaction.original_response()
     await poll_message.add_reaction("✅")
     await poll_message.add_reaction("❌")
     
     try:
-        # Wait for 60 seconds and then fetch the message again to get final reactions
         await asyncio.sleep(60)
         poll_message = await interaction.channel.fetch_message(poll_message.id)
         
-        # Count reactions (subtract 1 from each to exclude bot's reactions)
         yes_votes = next((reaction.count - 1 for reaction in poll_message.reactions if str(reaction.emoji) == "✅"), 0)
         no_votes = next((reaction.count - 1 for reaction in poll_message.reactions if str(reaction.emoji) == "❌"), 0)
         total_votes = yes_votes + no_votes
         
-        # Calculate percentages
         yes_percentage = (yes_votes / total_votes * 100) if total_votes > 0 else 0
         no_percentage = (no_votes / total_votes * 100) if total_votes > 0 else 0
         
-        # Create results embed
         results_embed = discord.Embed(
             title="📊 Poll Results",
             description=question,
@@ -131,13 +180,10 @@ async def poll(interaction: discord.Interaction, question: str):
         await interaction.followup.send(embed=results_embed)
         
     except Exception as e:
-        await interaction.followup.send("An error occurred while collecting poll results. Please try again.")
-        print(f"Poll error: {e}")
+        await interaction.followup.send("An error occurred while collecting poll results.")
+        logging.error(f"Poll error: {e}")
 
-# Store active chains and their timers
-active_chains = {}
-
-def parse_time(time_str):
+def parse_time(time_str: str) -> Optional[int]:
     """Convert time string like '5h' or '30m' to seconds"""
     match = re.match(r'(\d+)([hm])', time_str.lower())
     if not match:
@@ -151,7 +197,7 @@ def parse_time(time_str):
     elif unit == 'm':
         return amount * 60    # minutes to seconds
 
-def format_time_remaining(seconds):
+def format_time_remaining(seconds: int) -> str:
     """Format seconds into hours, minutes, seconds"""
     hours = seconds // 3600
     minutes = (seconds % 3600) // 60
@@ -162,29 +208,82 @@ def format_time_remaining(seconds):
     else:
         return f"{minutes}m {seconds}s"
 
+class ChainButton(Button):
+    def __init__(self, style: discord.ButtonStyle, label: str, is_join: bool):
+        super().__init__(style=style, label=label)
+        self.is_join = is_join
+        
+    async def callback(self, interaction: discord.Interaction):
+        assert self.view is not None
+        view: ChainView = self.view
+        
+        if self.is_join:
+            view.joiners.add((interaction.user.id, interaction.user.display_name))
+            view.cant_make_it.discard((interaction.user.id, interaction.user.display_name))
+            await interaction.response.send_message("You've joined the chain!", ephemeral=True)
+        else:
+            view.cant_make_it.add((interaction.user.id, interaction.user.display_name))
+            view.joiners.discard((interaction.user.id, interaction.user.display_name))
+            await interaction.response.send_message("You've indicated you can't make it.", ephemeral=True)
+
+class ChainView(View):
+    def __init__(self, chain_data: Dict):
+        super().__init__(timeout=None)
+        self.joiners: Set[Tuple[int, str]] = set()
+        self.cant_make_it: Set[Tuple[int, str]] = set()
+        self.chain_data = chain_data
+        
+        # Add the buttons
+        self.join_button = ChainButton(
+            style=discord.ButtonStyle.success,
+            label="I'll join!",
+            is_join=True
+        )
+        self.skip_button = ChainButton(
+            style=discord.ButtonStyle.danger,
+            label="Can't make it",
+            is_join=False
+        )
+        
+        self.add_item(self.join_button)
+        self.add_item(self.skip_button)
+    
+    def disable_all_buttons(self):
+        """Disable all buttons in the view"""
+        self.join_button.disabled = True
+        self.skip_button.disabled = True
+
 @bot.tree.command(name="chain", description="Organize a chain with a countdown timer")
 @app_commands.describe(time_str="Time until chain starts (e.g., '5h' for 5 hours, '30m' for 30 minutes)")
+@app_commands.guild_only()
 async def chain(interaction: discord.Interaction, time_str: str):
-    global active_chains
-    
-    # Check if there's already an active chain in this channel
-    if interaction.channel.id in active_chains:
-        await interaction.response.send_message("⚠️ There's already an active chain planned in this channel!")
+    if not isinstance(interaction.channel, (discord.TextChannel, discord.Thread)):
+        await interaction.response.send_message(
+            "Chains can only be created in text channels or threads!",
+            ephemeral=True
+        )
         return
     
-    # Parse the time string
+    if interaction.channel.id in bot.active_chains:
+        await interaction.response.send_message(
+            "⚠️ There's already an active chain planned in this channel!",
+            ephemeral=True
+        )
+        return
+    
     seconds = parse_time(time_str)
     if seconds is None:
-        await interaction.response.send_message("❌ Invalid time format! Use something like '5h' for 5 hours or '30m' for 30 minutes.")
+        await interaction.response.send_message(
+            "❌ Invalid time format! Use something like '5h' for 5 hours or '30m' for 30 minutes.",
+            ephemeral=True
+        )
         return
     
-    # Calculate end time
     end_time = datetime.now() + timedelta(seconds=seconds)
     
-    # Create initial embed
     embed = discord.Embed(
         title="🔄 Upcoming Chain",
-        description="A new chain is being organized! React with the emojis below to indicate your participation:",
+        description="A new chain is being organized! Click the buttons below to indicate your participation:",
         color=discord.Color.gold()
     )
     
@@ -202,62 +301,39 @@ async def chain(interaction: discord.Interaction, time_str: str):
     
     embed.add_field(
         name="Options",
-        value="✅ = I'll join the chain!\n❌ = I can't make it",
+        value="🟢 = I'll join the chain!\n🔴 = Can't make it",
         inline=False
     )
     
-    embed.set_footer(text=f"Chain organized by {interaction.user.name} • React to join!")
+    embed.set_footer(text=f"Chain organized by {interaction.user.name}")
     
-    # Send the embed and add reactions
-    await interaction.response.send_message(embed=embed)
-    chain_message = await interaction.original_response()
-    await chain_message.add_reaction("✅")
-    await chain_message.add_reaction("❌")
-    
-    # Store the chain info
-    active_chains[interaction.channel.id] = {
-        'message_id': chain_message.id,
+    chain_data = {
         'end_time': end_time,
         'organizer': interaction.user.name
     }
     
+    view = ChainView(chain_data)
+    await interaction.response.send_message(embed=embed, view=view)
+    chain_message = await interaction.original_response()
+    
+    bot.active_chains[interaction.channel.id] = {
+        'message_id': chain_message.id,
+        'end_time': end_time,
+        'organizer': interaction.user.name,
+        'view': view
+    }
+    
     try:
         while datetime.now() < end_time:
-            # Wait for 5 seconds between updates
             await asyncio.sleep(5)
             
-            # Fetch updated message to get current reactions
-            chain_message = await interaction.channel.fetch_message(chain_message.id)
-            
-            # Get participants (ensure each user only appears in one list)
-            joiners = []
-            cant_make_it = []
-            user_reactions = {}  # Track what each user has reacted with
-            
-            # First, collect all user reactions
-            for reaction in chain_message.reactions:
-                async for user in reaction.users():
-                    if not user.bot:  # Ignore bot reactions
-                        if user.display_name not in user_reactions:
-                            user_reactions[user.display_name] = []
-                        user_reactions[user.display_name].append(str(reaction.emoji))
-            
-            # Now assign users to lists with priority (✅ takes precedence over ❌)
-            for user_name, emojis in user_reactions.items():
-                if "✅" in emojis:
-                    joiners.append(user_name)
-                elif "❌" in emojis:
-                    cant_make_it.append(user_name)
-            
-            # Calculate remaining time
             remaining = (end_time - datetime.now()).total_seconds()
             if remaining < 0:
                 remaining = 0
             
-            # Update embed
             embed = discord.Embed(
                 title="🔄 Upcoming Chain",
-                description="A new chain is being organized! React with the emojis below to indicate your participation:",
+                description="A new chain is being organized! Click the buttons below to indicate your participation:",
                 color=discord.Color.gold()
             )
             
@@ -267,67 +343,60 @@ async def chain(interaction: discord.Interaction, time_str: str):
                 inline=False
             )
             
-            # Update participants field
-            joiners_text = "\n".join([f"• {name}" for name in joiners]) if joiners else "*No participants yet*"
+            joiners_text = "\n".join([f"• {name}" for _, name in view.joiners]) if view.joiners else "*No participants yet*"
             embed.add_field(
-                name=f"Participants ({len(joiners)})",
+                name=f"Participants ({len(view.joiners)})",
                 value=joiners_text,
                 inline=False
             )
             
-            cant_make_it_text = "\n".join([f"• {name}" for name in cant_make_it]) if cant_make_it else "*None*"
+            cant_make_it_text = "\n".join([f"• {name}" for _, name in view.cant_make_it]) if view.cant_make_it else "*None*"
             embed.add_field(
-                name=f"Can't Make It ({len(cant_make_it)})",
+                name=f"Can't Make It ({len(view.cant_make_it)})",
                 value=cant_make_it_text,
                 inline=False
             )
             
             embed.add_field(
                 name="Options",
-                value="✅ = I'll join the chain!\n❌ = I can't make it",
+                value="🟢 = I'll join the chain!\n🔴 = Can't make it",
                 inline=False
             )
             
-            embed.set_footer(text=f"Chain organized by {interaction.user.name} • React to join!")
+            embed.set_footer(text=f"Chain organized by {interaction.user.name}")
             
-            await chain_message.edit(embed=embed)
+            await chain_message.edit(embed=embed, view=view)
             
             if remaining <= 0:
                 break
         
-        # Final update when time is up
         final_embed = discord.Embed(
             title="🎯 Chain Starting!",
             description="Time's up! The chain is starting now!",
             color=discord.Color.green()
         )
         
+        joiners_text = "\n".join([f"• {name}" for _, name in view.joiners]) if view.joiners else "*No participants*"
         final_embed.add_field(
-            name=f"Final Participants ({len(joiners)})",
+            name=f"Final Participants ({len(view.joiners)})",
             value=joiners_text,
             inline=False
         )
         
-        if joiners:
-            # Get mentions for users who reacted with ✅
-            mentions = []
-            for reaction in chain_message.reactions:
-                if str(reaction.emoji) == "✅":
-                    async for user in reaction.users():
-                        if not user.bot:
-                            mentions.append(f"<@{user.id}>")
-                    break
+        if view.joiners:
+            mentions = [f"<@{user_id}>" for user_id, _ in view.joiners]
             mentions_text = " ".join(mentions)
             await interaction.followup.send(f"🔔 Chain is starting! {mentions_text}")
         
-        await interaction.followup.send(embed=final_embed)
+        # Disable the buttons after chain ends
+        view.disable_all_buttons()
+        await chain_message.edit(embed=final_embed, view=view)
         
     except Exception as e:
-        await interaction.followup.send("An error occurred while managing the chain. Please try again.")
-        print(f"Chain error: {e}")
+        await interaction.followup.send("An error occurred while managing the chain.")
+        logging.error(f"Chain error: {e}")
     finally:
-        # Clean up active chain data
-        if interaction.channel.id in active_chains:
-            del active_chains[interaction.channel.id]
+        if interaction.channel.id in bot.active_chains:
+            del bot.active_chains[interaction.channel.id]
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
