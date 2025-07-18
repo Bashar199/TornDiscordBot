@@ -7,15 +7,20 @@ import os
 import asyncio
 import datetime
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Set, Tuple
 from discord.ui import Button, View
+import aiohttp
+import json
 
 # Load environment variables and setup logging
 load_dotenv()
 token = os.getenv("DISCORD_TOKEN")
+torn_api_key = os.getenv("TORN_API_KEY")
 if not token:
     raise ValueError("DISCORD_TOKEN not found in .env file")
+if not torn_api_key:
+    raise ValueError("TORN_API_KEY not found in .env file")
 
 handler = logging.FileHandler(filename="discord.log", encoding="utf-8", mode="w")
 # Update intents
@@ -74,18 +79,27 @@ async def setnick(interaction: discord.Interaction, name: str, user_id: str):
         await interaction.response.send_message("This command can only be used in a server!", ephemeral=True)
         return
 
+    # Defer the response since API validation might take some time
+    await interaction.response.defer(ephemeral=False)
+
+    # Validate that the name and ID exist in faction 53180
+    is_valid, error_message = await validate_faction_member(name, user_id)
+    if not is_valid:
+        await interaction.followup.send(error_message, ephemeral=False)
+        return
+
     # Get the member object
     member = interaction.guild.get_member(interaction.user.id)
     if not member:
-        await interaction.response.send_message("Could not find your member info", ephemeral=True)
+        await interaction.followup.send("Could not find your member info", ephemeral=False)
         return
 
     # Check if bot has permission to manage nicknames
     bot_member = interaction.guild.get_member(bot.user.id)
     if not bot_member or not bot_member.guild_permissions.manage_nicknames:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "❌ I need the 'Manage Nicknames' permission to do this! Please ask a server admin to grant me this permission.",
-            ephemeral=True
+            ephemeral=False
         )
         return
 
@@ -95,27 +109,60 @@ async def setnick(interaction: discord.Interaction, name: str, user_id: str):
         
         # Check if nickname is too long (Discord limit is 32 characters)
         if len(new_nickname) > 32:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "❌ Nickname is too long! Please use a shorter name or ID.",
-                ephemeral=True
+                ephemeral=False
             )
             return
         
+        # Check for duplicate nicknames
+        is_duplicate, existing_member = check_duplicate_nickname(interaction.guild, new_nickname, interaction.user.id)
+        if is_duplicate:
+            # Find admin role or mention @everyone if no admin role exists
+            admin_role = discord.utils.get(interaction.guild.roles, name="admin") or discord.utils.get(interaction.guild.roles, name="Admin")
+            admin_mention = admin_role.mention if admin_role else "@admin"
+            
+            await interaction.followup.send(
+                f"❌ Nickname '{new_nickname}' is already in use by {existing_member.mention}. {admin_mention} - duplicate nickname detected!",
+                ephemeral=False  # Make this visible to admins
+            )
+            return
+
         # Change the nickname
         await member.edit(nick=new_nickname)
-        await interaction.response.send_message(
-            f"✅ Your nickname has been set to: {new_nickname}",
-            ephemeral=True
+        
+        # Give the Soldier role if they don't have it
+        soldier_role = discord.utils.get(interaction.guild.roles, name="💂‍♀️Soldier💂‍♀️")
+        role_message = ""
+        
+        if soldier_role:
+            if soldier_role not in member.roles:
+                try:
+                    await member.add_roles(soldier_role)
+                    role_message = f" and assigned the {soldier_role.mention} role"
+                except discord.Forbidden:
+                    role_message = f" (couldn't assign {soldier_role.mention} role - insufficient permissions)"
+                except Exception as e:
+                    logging.error(f"Role assignment error: {e}")
+                    role_message = f" (error assigning {soldier_role.mention} role)"
+            else:
+                role_message = f" (you already have the {soldier_role.mention} role)"
+        else:
+            role_message = " (💂‍♀️Soldier💂‍♀️ role not found on this server)"
+        
+        await interaction.followup.send(
+            f"✅ Your nickname has been set to: {new_nickname}{role_message}",
+            ephemeral=False
         )
     except discord.Forbidden:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "❌ I don't have permission to change nicknames! The server role hierarchy might be preventing me.",
-            ephemeral=True
+            ephemeral=False
         )
     except Exception as e:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "An error occurred while changing your nickname.",
-            ephemeral=True
+            ephemeral=False
         )
         logging.error(f"Nickname change error: {e}")
 
@@ -183,19 +230,50 @@ async def poll(interaction: discord.Interaction, question: str):
         await interaction.followup.send("An error occurred while collecting poll results.")
         logging.error(f"Poll error: {e}")
 
-def parse_time(time_str: str) -> Optional[int]:
-    """Convert time string like '5h' or '30m' to seconds"""
-    match = re.match(r'(\d+)([hm])', time_str.lower())
-    if not match:
-        return None
+def parse_time(time_str: str) -> Tuple[Optional[int], Optional[datetime]]:
+    """
+    Convert time string like '5h', '30m', or '18:00TC' to seconds and target UTC time
+    Returns (seconds_until_target, target_utc_datetime)
+    """
+    # Check for TC time format (e.g., 18:00TC or 12:30TC)
+    tc_match = re.match(r'(\d{1,2}):(\d{2})tc', time_str.lower())
+    if tc_match:
+        tc_hour = int(tc_match.group(1))
+        tc_minute = int(tc_match.group(2))
+        
+        if not (0 <= tc_hour <= 23) or not (0 <= tc_minute <= 59):
+            return None, None
+        
+        # Convert TC time to target time
+        # TC time is UTC, so we calculate the exact target time
+        now_utc = datetime.now(timezone.utc)
+        target_time = now_utc.replace(hour=tc_hour, minute=tc_minute, second=0, microsecond=0)
+        
+        # If the target time has already passed today, set it for tomorrow
+        if target_time <= now_utc:
+            target_time += timedelta(days=1)
+        
+        # Calculate seconds until target time
+        time_diff = target_time - now_utc
+        return int(time_diff.total_seconds()), target_time
     
-    amount, unit = match.groups()
-    amount = int(amount)
+    # Check for regular time format (5h, 30m)
+    regular_match = re.match(r'(\d+)([hm])', time_str.lower())
+    if regular_match:
+        amount, unit = regular_match.groups()
+        amount = int(amount)
+        
+        seconds = 0
+        if unit == 'h':
+            seconds = amount * 3600  # hours to seconds
+        elif unit == 'm':
+            seconds = amount * 60    # minutes to seconds
+        
+        # For duration-based times, calculate target time
+        target_time = datetime.now(timezone.utc) + timedelta(seconds=seconds)
+        return seconds, target_time
     
-    if unit == 'h':
-        return amount * 3600  # hours to seconds
-    elif unit == 'm':
-        return amount * 60    # minutes to seconds
+    return None, None
 
 def format_time_remaining(seconds: int) -> str:
     """Format seconds into hours, minutes, seconds"""
@@ -207,6 +285,68 @@ def format_time_remaining(seconds: int) -> str:
         return f"{hours}h {minutes}m {seconds}s"
     else:
         return f"{minutes}m {seconds}s"
+
+async def validate_faction_member(name: str, user_id: str) -> Tuple[bool, str]:
+    """
+    Validate if a user with given name and ID exists in faction 53180
+    Returns (is_valid, error_message)
+    """
+    try:
+        async with aiohttp.ClientSession() as session:
+            # Get faction members from Torn API
+            url = f"https://api.torn.com/faction/53180?selections=basic&key={torn_api_key}"
+            async with session.get(url) as response:
+                if response.status != 200:
+                    return False, "❌ Failed to connect to Torn API. Please try again later."
+                
+                data = await response.json()
+                
+                if 'error' in data:
+                    return False, f"❌ API Error: {data['error']['error']}"
+                
+                members = data.get('members', {})
+                
+                # Check if user_id exists in faction
+                if user_id not in members:
+                    return False, f"❌ User ID {user_id} is not found in faction ."
+                
+                # Check if the name matches
+                member_data = members[user_id]
+                member_name = member_data.get('name', '').lower()
+                
+                if member_name != name.lower():
+                    actual_name = member_data.get('name', 'Unknown')
+                    return False, f"❌ Name mismatch! User ID {user_id} belongs to '{actual_name}', not '{name}'."
+                
+                return True, ""
+                
+    except aiohttp.ClientError:
+        return False, "❌ Network error while connecting to Torn API. Please try again later."
+    except json.JSONDecodeError:
+        return False, "❌ Invalid response from Torn API. Please try again later."
+    except Exception as e:
+        logging.error(f"Faction validation error: {e}")
+        return False, "❌ An unexpected error occurred during validation."
+
+def check_duplicate_nickname(guild: discord.Guild, new_nickname: str, current_user_id: int) -> Tuple[bool, Optional[discord.Member]]:
+    """
+    Check if the nickname already exists in the server
+    Returns (is_duplicate, existing_member)
+    """
+    for member in guild.members:
+        # Skip the current user (they can keep their own nickname)
+        if member.id == current_user_id:
+            continue
+            
+        # Check if any other member has the same nickname
+        if member.nick and member.nick.lower() == new_nickname.lower():
+            return True, member
+            
+        # Also check display name in case they don't have a nickname set
+        if member.display_name.lower() == new_nickname.lower():
+            return True, member
+    
+    return False, None
 
 class ChainButton(Button):
     def __init__(self, style: discord.ButtonStyle, label: str, is_join: bool):
@@ -254,7 +394,7 @@ class ChainView(View):
         self.skip_button.disabled = True
 
 @bot.tree.command(name="chain", description="Organize a chain with a countdown timer")
-@app_commands.describe(time_str="Time until chain starts (e.g., '5h' for 5 hours, '30m' for 30 minutes)")
+@app_commands.describe(time_str="Time until chain starts (e.g., '5h' for 5 hours, '30m' for 30 minutes, '18:00TC' for TC time)")
 @app_commands.guild_only()
 async def chain(interaction: discord.Interaction, time_str: str):
     if not isinstance(interaction.channel, (discord.TextChannel, discord.Thread)):
@@ -271,15 +411,18 @@ async def chain(interaction: discord.Interaction, time_str: str):
         )
         return
     
-    seconds = parse_time(time_str)
-    if seconds is None:
+    seconds, end_time_utc = parse_time(time_str)
+    if seconds is None or end_time_utc is None:
         await interaction.response.send_message(
-            "❌ Invalid time format! Use something like '5h' for 5 hours or '30m' for 30 minutes.",
+            "❌ Invalid time format! Use something like '5h' for 5 hours, '30m' for 30 minutes, or '18:00TC' for TC time.",
             ephemeral=True
         )
         return
     
     end_time = datetime.now() + timedelta(seconds=seconds)
+    
+    # Create Discord timestamp (Unix timestamp)
+    timestamp = int(end_time_utc.timestamp())
     
     embed = discord.Embed(
         title="🔄 Upcoming Chain",
@@ -289,7 +432,7 @@ async def chain(interaction: discord.Interaction, time_str: str):
     
     embed.add_field(
         name="Chain Start Time",
-        value=f"Chain starts in: {format_time_remaining(seconds)}",
+        value=f"Countdown: {format_time_remaining(seconds)}\nStarts at: {end_time_utc.strftime('%H:%M')} TC\nYour local time: <t:{timestamp}:t>",
         inline=False
     )
     
@@ -319,6 +462,8 @@ async def chain(interaction: discord.Interaction, time_str: str):
     bot.active_chains[interaction.channel.id] = {
         'message_id': chain_message.id,
         'end_time': end_time,
+        'end_time_utc': end_time_utc,
+        'timestamp': timestamp,
         'organizer': interaction.user.name,
         'view': view
     }
@@ -339,7 +484,7 @@ async def chain(interaction: discord.Interaction, time_str: str):
             
             embed.add_field(
                 name="Chain Start Time",
-                value=f"Chain starts in: {format_time_remaining(int(remaining))}",
+                value=f"Countdown: {format_time_remaining(int(remaining))}\nStarts at: {end_time_utc.strftime('%H:%M')} TC\nYour local time: <t:{timestamp}:t>",
                 inline=False
             )
             
@@ -392,11 +537,213 @@ async def chain(interaction: discord.Interaction, time_str: str):
         view.disable_all_buttons()
         await chain_message.edit(embed=final_embed, view=view)
         
+        # Start chain leaderboard tracking
+        await interaction.followup.send("🔗 Starting chain leaderboard tracking...")
+        
+        # Get initial chain data to start tracking
+        initial_chain_data = await get_chain_leaderboard()
+        initial_hits = 0
+        if initial_chain_data:
+            _, initial_hits, _ = process_chain_data(initial_chain_data)
+        
+        # Start tracking in background
+        asyncio.create_task(track_chain_progress(interaction.channel, initial_hits))
+        
     except Exception as e:
         await interaction.followup.send("An error occurred while managing the chain.")
         logging.error(f"Chain error: {e}")
     finally:
         if interaction.channel.id in bot.active_chains:
             del bot.active_chains[interaction.channel.id]
+
+async def get_chain_leaderboard(faction_id: str = "53180") -> Optional[Dict]:
+    """
+    Get current chain leaderboard data from Torn API
+    Returns chain data or None if failed
+    """
+    try:
+        async with aiohttp.ClientSession() as session:
+            url = f"https://api.torn.com/faction/{faction_id}?selections=chain&key={torn_api_key}"
+            async with session.get(url) as response:
+                if response.status != 200:
+                    return None
+                
+                data = await response.json()
+                
+                if 'error' in data:
+                    logging.error(f"Chain API Error: {data['error']['error']}")
+                    return None
+                
+                return data.get("chain", {})
+                
+    except Exception as e:
+        logging.error(f"Chain leaderboard error: {e}")
+        return None
+
+def process_chain_data(chain_data: Dict) -> Tuple[Dict, int, bool]:
+    """
+    Process chain data and return leaderboard, current hits, and if chain is active
+    Returns (leaderboard_dict, current_hits, is_active)
+    """
+    chain_log = chain_data.get("log", {})
+    current_hits = chain_data.get("current", 0)
+    
+    # Check if chain is active (has recent activity)
+    is_active = current_hits > 0
+    
+    if not chain_log:
+        return {}, current_hits, is_active
+    
+    # Aggregate hits per player
+    leaderboard = {}
+    
+    for hit in chain_log.values():
+        attacker = hit.get("initiator_name", "Unknown")
+        result = hit.get("result", "").lower()
+        
+        if attacker not in leaderboard:
+            leaderboard[attacker] = {"hits": 0, "mugs": 0, "leaves": 0, "others": 0}
+        
+        leaderboard[attacker]["hits"] += 1
+        
+        if "mug" in result:
+            leaderboard[attacker]["mugs"] += 1
+        elif "leave" in result:
+            leaderboard[attacker]["leaves"] += 1
+        else:
+            leaderboard[attacker]["others"] += 1
+    
+    return leaderboard, current_hits, is_active
+
+def create_leaderboard_embed(leaderboard: Dict, current_hits: int, is_final: bool = False) -> discord.Embed:
+    """Create Discord embed for chain leaderboard"""
+    title = "🔗 Final Chain Leaderboard" if is_final else f"🔗 Chain Leaderboard - {current_hits} hits"
+    color = discord.Color.gold() if is_final else discord.Color.blue()
+    
+    embed = discord.Embed(
+        title=title,
+        color=color,
+        timestamp=datetime.now(timezone.utc)
+    )
+    
+    if not leaderboard:
+        embed.description = "No chain data available yet."
+        return embed
+    
+    # Sort by total hits
+    sorted_leaderboard = sorted(leaderboard.items(), key=lambda x: x[1]["hits"], reverse=True)
+    
+    # Show top 10 players to avoid embed limits
+    for i, (name, stats) in enumerate(sorted_leaderboard[:10]):
+        position = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else f"{i+1}."
+        value = (
+            f"🎯 Hits: `{stats['hits']}`\n"
+            f"💰 Mugs: `{stats['mugs']}`\n"
+            f"🚪 Leaves: `{stats['leaves']}`\n"
+            f"🧍 Others: `{stats['others']}`"
+        )
+        embed.add_field(name=f"{position} {name}", value=value, inline=True)
+    
+    if len(sorted_leaderboard) > 10:
+        embed.set_footer(text=f"Showing top 10 of {len(sorted_leaderboard)} participants")
+    
+    return embed
+
+async def track_chain_progress(channel, initial_hits: int = 0):
+    """
+    Track chain progress and update leaderboard every 30 seconds
+    Stop if chain is inactive for more than 5 minutes
+    """
+    last_hits = initial_hits
+    inactive_time = 0
+    max_inactive_time = 300  # 5 minutes in seconds
+    update_interval = 30  # 30 seconds
+    
+    leaderboard_message = None
+    
+    try:
+        while inactive_time < max_inactive_time:
+            await asyncio.sleep(update_interval)
+            
+            # Get current chain data
+            chain_data = await get_chain_leaderboard()
+            if not chain_data:
+                continue
+            
+            leaderboard, current_hits, is_active = process_chain_data(chain_data)
+            
+            # Check if chain has new activity
+            if current_hits > last_hits:
+                last_hits = current_hits
+                inactive_time = 0  # Reset inactive timer
+            else:
+                inactive_time += update_interval
+            
+            # Create/update leaderboard embed
+            embed = create_leaderboard_embed(leaderboard, current_hits)
+            
+            if leaderboard_message is None:
+                # Send initial leaderboard message
+                leaderboard_message = await channel.send(embed=embed)
+            else:
+                # Update existing message
+                try:
+                    await leaderboard_message.edit(embed=embed)
+                except discord.NotFound:
+                    # Message was deleted, send a new one
+                    leaderboard_message = await channel.send(embed=embed)
+            
+            # If chain is not active, break early
+            if not is_active:
+                break
+        
+        # Send final leaderboard
+        if chain_data:
+            leaderboard, current_hits, _ = process_chain_data(chain_data)
+            final_embed = create_leaderboard_embed(leaderboard, current_hits, is_final=True)
+            final_embed.description = "🔒 Chain tracking ended - No activity for 5+ minutes"
+            
+            if leaderboard_message:
+                try:
+                    await leaderboard_message.edit(embed=final_embed)
+                except discord.NotFound:
+                    await channel.send(embed=final_embed)
+            else:
+                await channel.send(embed=final_embed)
+                
+    except Exception as e:
+        logging.error(f"Chain tracking error: {e}")
+        if leaderboard_message:
+            try:
+                error_embed = discord.Embed(
+                    title="❌ Chain Tracking Error",
+                    description="An error occurred while tracking the chain.",
+                    color=discord.Color.red()
+                )
+                await leaderboard_message.edit(embed=error_embed)
+            except:
+                pass
+
+@bot.tree.command(name="chainboard", description="Show current chain leaderboard")
+@app_commands.guild_only()
+async def chainboard(interaction: discord.Interaction):
+    await interaction.response.defer()
+    
+    chain_data = await get_chain_leaderboard()
+    if not chain_data:
+        await interaction.followup.send(
+            "❌ Failed to retrieve chain data from Torn API.",
+            ephemeral=True
+        )
+        return
+    
+    leaderboard, current_hits, is_active = process_chain_data(chain_data)
+    embed = create_leaderboard_embed(leaderboard, current_hits)
+    
+    if not is_active:
+        embed.description = "⚠️ No active chain found."
+    
+    await interaction.followup.send(embed=embed)
+
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
