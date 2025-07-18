@@ -1,0 +1,30 @@
+# Git files
+.git
+.gitignore
+README.md
+
+# Python cache
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs (exclude from build, but not from .gitignore since they're needed for runtime)
+# discord.log
+
+# Environment files (these should be set in CapRover, not copied)
+.env 
