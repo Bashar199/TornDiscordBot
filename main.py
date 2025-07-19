@@ -621,15 +621,18 @@ async def manage_chain_lifecycle(channel_id: int):
 @app_commands.describe(time_str="Time until chain starts (e.g., '5h' for 5 hours, '30m' for 30 minutes, '18:00TC' for TC time)")
 @app_commands.guild_only()
 async def chain(interaction: discord.Interaction, time_str: str):
+    # Defer the response immediately to prevent timeout
+    await interaction.response.defer()
+
     if not isinstance(interaction.channel, (discord.TextChannel, discord.Thread)):
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "Chains can only be created in text channels or threads!",
             ephemeral=True
         )
         return
     
     if interaction.channel.id in bot.active_chains:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "⚠️ There's already an active chain planned in this channel!",
             ephemeral=True
         )
@@ -637,7 +640,7 @@ async def chain(interaction: discord.Interaction, time_str: str):
     
     seconds, end_time_utc = parse_time(time_str)
     if seconds is None or end_time_utc is None:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "❌ Invalid time format! Use something like '5h' for 5 hours, '30m' for 30 minutes, or '18:00TC' for TC time.",
             ephemeral=True
         )
@@ -676,7 +679,7 @@ async def chain(interaction: discord.Interaction, time_str: str):
     }
     
     view = ChainView(bot, chain_data)
-    await interaction.response.send_message(embed=embed, view=view)
+    await interaction.followup.send(embed=embed, view=view)
     chain_message = await interaction.original_response()
     
     bot.active_chains[interaction.channel.id] = {
@@ -689,6 +692,7 @@ async def chain(interaction: discord.Interaction, time_str: str):
     
     await save_active_chains()
     asyncio.create_task(manage_chain_lifecycle(interaction.channel.id))
+    logger.info(f"Chain started in channel {interaction.channel.id} by {interaction.user.name}")
 
 async def get_chain_leaderboard(faction_id: str = "53180") -> Optional[Dict]:
     """
