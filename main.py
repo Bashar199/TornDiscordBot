@@ -23,8 +23,6 @@ logging.basicConfig(
         logging.FileHandler(filename="discord.log", encoding="utf-8", mode="a")  # Also keep file logging
     ]
 )
-logger = logging.getLogger('discord')  # Get Discord's logger
-logger.setLevel(logging.INFO)  # Set Discord logger level
 
 # Load environment variables
 load_dotenv()
@@ -841,4 +839,4 @@ async def chainboard(interaction: discord.Interaction):
     await interaction.followup.send(embed=embed)
 
 
-bot.run(token, log_level=logging.INFO)
+bot.run(token)
