@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import logging
+import sys
 from dotenv import load_dotenv
 import os
 import asyncio
@@ -13,16 +14,29 @@ from discord.ui import Button, View
 import aiohttp
 import json
 
-# Load environment variables and setup logging
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),  # Log to stdout for CapRover
+        logging.FileHandler(filename="discord.log", encoding="utf-8", mode="a")  # Also keep file logging
+    ]
+)
+logger = logging.getLogger('discord')  # Get Discord's logger
+logger.setLevel(logging.INFO)  # Set Discord logger level
+
+# Load environment variables
 load_dotenv()
 token = os.getenv("DISCORD_TOKEN")
 torn_api_key = os.getenv("TORN_API_KEY")
 if not token:
+    logger.error("DISCORD_TOKEN not found in .env file")
     raise ValueError("DISCORD_TOKEN not found in .env file")
 if not torn_api_key:
+    logger.error("TORN_API_KEY not found in .env file")
     raise ValueError("TORN_API_KEY not found in .env file")
 
-handler = logging.FileHandler(filename="discord.log", encoding="utf-8", mode="w")
 # Update intents
 intents = discord.Intents.default()
 intents.message_content = True
@@ -35,17 +49,18 @@ class ChainBot(commands.Bot):
         super().__init__(command_prefix="!", intents=intents)
         # Store active chains and their timers
         self.active_chains = {}
+        logger.info("ChainBot initialized")
 
 bot = ChainBot()
 
 @bot.event
 async def on_ready():
-    print(f"Logged in as {bot.user}")
+    logger.info(f"Logged in as {bot.user}")
     try:
         synced = await bot.tree.sync()
-        print(f"Synced {len(synced)} command(s)")
+        logger.info(f"Synced {len(synced)} command(s)")
     except Exception as e:
-        print(f"Failed to sync commands: {e}")
+        logger.error(f"Failed to sync commands: {e}")
 
 @bot.event
 async def on_member_join(member):
@@ -170,7 +185,7 @@ async def setnick(interaction: discord.Interaction, name: str, user_id: str):
 @app_commands.describe(message="The message to send to yourself")
 async def dm(interaction: discord.Interaction, message: str):
     try:
-        await interaction.user.send(f"You said: {message}")
+        await interaction.user.send(f"You said🗣️: {message}")
         await interaction.response.send_message("Message sent to your DMs!", ephemeral=True)
     except discord.Forbidden:
         await interaction.response.send_message(
@@ -746,4 +761,4 @@ async def chainboard(interaction: discord.Interaction):
     await interaction.followup.send(embed=embed)
 
 
-bot.run(token, log_handler=handler, log_level=logging.DEBUG)
+bot.run(token, log_level=logging.INFO)
