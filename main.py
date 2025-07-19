@@ -49,7 +49,38 @@ class ChainBot(commands.Bot):
         super().__init__(command_prefix="!", intents=intents)
         # Store active chains and their timers
         self.active_chains = {}
+        self.chain_tasks = {}  # Store chain tracking tasks
         logger.info("ChainBot initialized")
+        
+    async def setup_hook(self):
+        """Called when the bot is done preparing data"""
+        # Create background task for checking chain tasks
+        self.bg_task = self.loop.create_task(self.check_chain_tasks())
+        logger.info("Setup hook completed")
+
+    async def check_chain_tasks(self):
+        """Periodically check and restart chain tasks if needed"""
+        await self.wait_until_ready()
+        while not self.is_closed():
+            try:
+                for channel_id, chain_data in list(self.active_chains.items()):
+                    # Check if task exists and is not running
+                    if (channel_id not in self.chain_tasks or 
+                        self.chain_tasks[channel_id].done() or 
+                        self.chain_tasks[channel_id].cancelled()):
+                        
+                        channel = self.get_channel(channel_id)
+                        if channel:
+                            # Restart chain tracking
+                            logger.info(f"Restarting chain tracking for channel {channel_id}")
+                            self.chain_tasks[channel_id] = self.loop.create_task(
+                                track_chain_progress(channel, initial_hits=0)
+                            )
+                
+                await asyncio.sleep(300)  # Check every 5 minutes
+            except Exception as e:
+                logger.error(f"Error in check_chain_tasks: {e}")
+                await asyncio.sleep(60)  # Wait a minute before retrying if there's an error
 
 bot = ChainBot()
 
@@ -483,93 +514,11 @@ async def chain(interaction: discord.Interaction, time_str: str):
         'view': view
     }
     
-    try:
-        while datetime.now() < end_time:
-            await asyncio.sleep(5)
-            
-            remaining = (end_time - datetime.now()).total_seconds()
-            if remaining < 0:
-                remaining = 0
-            
-            embed = discord.Embed(
-                title="🔄 Upcoming Chain",
-                description="A new chain is being organized! Click the buttons below to indicate your participation:",
-                color=discord.Color.gold()
-            )
-            
-            embed.add_field(
-                name="Chain Start Time",
-                value=f"Countdown: {format_time_remaining(int(remaining))}\nStarts at: {end_time_utc.strftime('%H:%M')} TC\nYour local time: <t:{timestamp}:t>",
-                inline=False
-            )
-            
-            joiners_text = "\n".join([f"• {name}" for _, name in view.joiners]) if view.joiners else "*No participants yet*"
-            embed.add_field(
-                name=f"Participants ({len(view.joiners)})",
-                value=joiners_text,
-                inline=False
-            )
-            
-            cant_make_it_text = "\n".join([f"• {name}" for _, name in view.cant_make_it]) if view.cant_make_it else "*None*"
-            embed.add_field(
-                name=f"Can't Make It ({len(view.cant_make_it)})",
-                value=cant_make_it_text,
-                inline=False
-            )
-            
-            embed.add_field(
-                name="Options",
-                value="🟢 = I'll join the chain!\n🔴 = Can't make it",
-                inline=False
-            )
-            
-            embed.set_footer(text=f"Chain organized by {interaction.user.name}")
-            
-            await chain_message.edit(embed=embed, view=view)
-            
-            if remaining <= 0:
-                break
-        
-        final_embed = discord.Embed(
-            title="🎯 Chain Starting!",
-            description="Time's up! The chain is starting now!",
-            color=discord.Color.green()
-        )
-        
-        joiners_text = "\n".join([f"• {name}" for _, name in view.joiners]) if view.joiners else "*No participants*"
-        final_embed.add_field(
-            name=f"Final Participants ({len(view.joiners)})",
-            value=joiners_text,
-            inline=False
-        )
-        
-        if view.joiners:
-            mentions = [f"<@{user_id}>" for user_id, _ in view.joiners]
-            mentions_text = " ".join(mentions)
-            await interaction.followup.send(f"🔔 Chain is starting! {mentions_text}")
-        
-        # Disable the buttons after chain ends
-        view.disable_all_buttons()
-        await chain_message.edit(embed=final_embed, view=view)
-        
-        # Start chain leaderboard tracking
-        await interaction.followup.send("🔗 Starting chain leaderboard tracking...")
-        
-        # Get initial chain data to start tracking
-        initial_chain_data = await get_chain_leaderboard()
-        initial_hits = 0
-        if initial_chain_data:
-            _, initial_hits, _ = process_chain_data(initial_chain_data)
-        
-        # Start tracking in background
-        asyncio.create_task(track_chain_progress(interaction.channel, initial_hits))
-        
-    except Exception as e:
-        await interaction.followup.send("An error occurred while managing the chain.")
-        logging.error(f"Chain error: {e}")
-    finally:
-        if interaction.channel.id in bot.active_chains:
-            del bot.active_chains[interaction.channel.id]
+    # Create and store the chain tracking task
+    bot.chain_tasks[interaction.channel.id] = bot.loop.create_task(
+        track_chain_progress(interaction.channel, initial_hits=0)
+    )
+    logger.info(f"Started chain tracking for channel {interaction.channel.id}")
 
 async def get_chain_leaderboard(faction_id: str = "53180") -> Optional[Dict]:
     """
@@ -673,50 +622,72 @@ async def track_chain_progress(channel, initial_hits: int = 0):
     inactive_time = 0
     max_inactive_time = 300  # 5 minutes in seconds
     update_interval = 30  # 30 seconds
+    error_count = 0
+    max_errors = 5  # Maximum consecutive errors before giving up
     
     leaderboard_message = None
     
     try:
-        while inactive_time < max_inactive_time:
-            await asyncio.sleep(update_interval)
-            
-            # Get current chain data
-            chain_data = await get_chain_leaderboard()
-            if not chain_data:
-                continue
-            
-            leaderboard, current_hits, is_active = process_chain_data(chain_data)
-            
-            # Check if chain has new activity
-            if current_hits > last_hits:
-                last_hits = current_hits
-                inactive_time = 0  # Reset inactive timer
-            else:
-                inactive_time += update_interval
-            
-            # Create/update leaderboard embed
-            embed = create_leaderboard_embed(leaderboard, current_hits)
-            
-            if leaderboard_message is None:
-                # Send initial leaderboard message
-                leaderboard_message = await channel.send(embed=embed)
-            else:
-                # Update existing message
-                try:
-                    await leaderboard_message.edit(embed=embed)
-                except discord.NotFound:
-                    # Message was deleted, send a new one
+        while inactive_time < max_inactive_time and error_count < max_errors:
+            try:
+                await asyncio.sleep(update_interval)
+                
+                # Get current chain data
+                chain_data = await get_chain_leaderboard()
+                if not chain_data:
+                    error_count += 1
+                    logger.warning(f"Failed to get chain data (attempt {error_count}/{max_errors})")
+                    continue
+                
+                error_count = 0  # Reset error count on successful API call
+                leaderboard, current_hits, is_active = process_chain_data(chain_data)
+                
+                # Check if chain has new activity
+                if current_hits > last_hits:
+                    last_hits = current_hits
+                    inactive_time = 0  # Reset inactive timer
+                    logger.info(f"Chain activity detected: {current_hits} hits")
+                else:
+                    inactive_time += update_interval
+                
+                # Create/update leaderboard embed
+                embed = create_leaderboard_embed(leaderboard, current_hits)
+                
+                if leaderboard_message is None:
+                    # Send initial leaderboard message
                     leaderboard_message = await channel.send(embed=embed)
-            
-            # If chain is not active, break early
-            if not is_active:
-                break
+                    logger.info("Initial leaderboard message sent")
+                else:
+                    # Update existing message
+                    try:
+                        await leaderboard_message.edit(embed=embed)
+                    except discord.NotFound:
+                        # Message was deleted, send a new one
+                        leaderboard_message = await channel.send(embed=embed)
+                        logger.info("Leaderboard message recreated (previous was deleted)")
+                
+                # If chain is not active, break early
+                if not is_active:
+                    logger.info("Chain is no longer active")
+                    break
+                
+            except asyncio.CancelledError:
+                logger.info("Chain tracking task cancelled")
+                raise
+            except Exception as e:
+                error_count += 1
+                logger.error(f"Error in chain tracking loop: {e}")
+                await asyncio.sleep(5)  # Short delay before retry
         
         # Send final leaderboard
         if chain_data:
             leaderboard, current_hits, _ = process_chain_data(chain_data)
             final_embed = create_leaderboard_embed(leaderboard, current_hits, is_final=True)
-            final_embed.description = "🔒 Chain tracking ended - No activity for 5+ minutes"
+            
+            if error_count >= max_errors:
+                final_embed.description = "⚠️ Chain tracking ended due to repeated errors"
+            else:
+                final_embed.description = "🔒 Chain tracking ended - No activity for 5+ minutes"
             
             if leaderboard_message:
                 try:
@@ -725,9 +696,14 @@ async def track_chain_progress(channel, initial_hits: int = 0):
                     await channel.send(embed=final_embed)
             else:
                 await channel.send(embed=final_embed)
-                
+            
+            logger.info("Chain tracking completed successfully")
+            
+    except asyncio.CancelledError:
+        logger.info("Chain tracking task cancelled")
+        raise
     except Exception as e:
-        logging.error(f"Chain tracking error: {e}")
+        logger.error(f"Chain tracking error: {e}")
         if leaderboard_message:
             try:
                 error_embed = discord.Embed(
@@ -738,6 +714,14 @@ async def track_chain_progress(channel, initial_hits: int = 0):
                 await leaderboard_message.edit(embed=error_embed)
             except:
                 pass
+    finally:
+        # Clean up
+        channel_id = channel.id
+        if channel_id in bot.active_chains:
+            del bot.active_chains[channel_id]
+        if channel_id in bot.chain_tasks:
+            del bot.chain_tasks[channel_id]
+        logger.info(f"Cleaned up chain tracking for channel {channel_id}")
 
 @bot.tree.command(name="chainboard", description="Show current chain leaderboard")
 @app_commands.guild_only()
