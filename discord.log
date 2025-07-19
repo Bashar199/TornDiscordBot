@@ -333,3 +333,22 @@ discord.app_commands.errors.CommandInvokeError: Command 'chain' raised an except
 2025-07-19 15:59:28,568 - root - ERROR - Chain error: 401 Unauthorized (error code: 50027): Invalid Webhook Token
 2025-07-19 16:15:25,522 - discord.gateway - INFO - Shard ID None has successfully RESUMED session 3c9e09ca7d64b5f6b94e1f83a1f6fbbf.
 2025-07-19 16:22:47,791 - root - ERROR - Chain error: 401 Unauthorized (error code: 50027): Invalid Webhook Token
+2025-07-19 18:13:43,168 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-19 18:13:43,169 - discord - INFO - ChainBot initialized
+2025-07-19 18:13:43,177 - discord.client - INFO - logging in using static token
+2025-07-19 18:13:45,937 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: ce3cfa0cb3c3406376c66119933e3379).
+2025-07-19 18:13:47,951 - discord - INFO - Logged in as bot_batfrog#4676
+2025-07-19 18:13:47,953 - discord - INFO - Attempting to load and resume chains from disk...
+2025-07-19 18:13:47,955 - discord - INFO - No active_chains.json file found. Starting fresh.
+2025-07-19 18:13:48,700 - discord - INFO - Synced 6 command(s)
+2025-07-19 18:14:05,083 - discord - INFO - Successfully saved active chains to disk.
+2025-07-19 18:34:47,042 - discord - INFO - Successfully saved active chains to disk.
+2025-07-19 18:44:09,483 - discord - INFO - Successfully saved active chains to disk.
+2025-07-19 19:06:26,499 - discord - INFO - Successfully saved active chains to disk.
+2025-07-19 19:06:29,409 - discord - INFO - Successfully saved active chains to disk.
+2025-07-19 19:07:25,694 - discord - INFO - Successfully saved active chains to disk.
+2025-07-19 19:38:53,238 - discord.gateway - INFO - Shard ID None session has been invalidated.
+2025-07-19 19:38:59,259 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 05b5fb2add8fdd53b51163697cd5f676).
+2025-07-19 19:39:01,294 - discord - INFO - Logged in as bot_batfrog#4676
+2025-07-19 19:39:01,791 - discord - INFO - Synced 6 command(s)
+2025-07-19 19:39:02,832 - discord - INFO - Successfully saved active chains to disk.
