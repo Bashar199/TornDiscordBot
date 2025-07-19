@@ -689,6 +689,7 @@ async def track_chain_progress(channel, initial_hits: int = 0):
     max_errors = 5  # Maximum consecutive errors before giving up
     
     leaderboard_message = None
+    chain_data = None # Ensure it's defined for the finally block
     
     try:
         while inactive_time < max_inactive_time and error_count < max_errors:
