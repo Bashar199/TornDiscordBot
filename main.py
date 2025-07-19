@@ -63,21 +63,52 @@ class ChainBot(commands.Bot):
         await self.wait_until_ready()
         while not self.is_closed():
             try:
+                # Use a copy to avoid issues with modifying the dict during iteration
                 for channel_id, chain_data in list(self.active_chains.items()):
-                    # Check if task exists and is not running
-                    if (channel_id not in self.chain_tasks or 
-                        self.chain_tasks[channel_id].done() or 
-                        self.chain_tasks[channel_id].cancelled()):
-                        
+                    task = self.chain_tasks.get(channel_id)
+                    
+                    # If task doesn't exist or is done, we need to restart it
+                    if task is None or task.done() or task.cancelled():
                         channel = self.get_channel(channel_id)
-                        if channel:
-                            # Restart chain tracking
-                            logger.info(f"Restarting chain tracking for channel {channel_id}")
+                        if not channel:
+                            logger.warning(f"Could not find channel {channel_id} to restart task. Removing from active chains.")
+                            del self.active_chains[channel_id]
+                            if channel_id in self.chain_tasks:
+                                del self.chain_tasks[channel_id]
+                            continue
+
+                        status = chain_data.get('status', 'active') # Default to 'active' for older data
+                        logger.info(f"Restarting task for channel {channel_id} with status '{status}'")
+
+                        if status == 'countdown':
+                            # Recalculate remaining time for countdown
+                            end_time_utc = chain_data.get('end_time_utc')
+                            if end_time_utc:
+                                now_utc = datetime.now(timezone.utc)
+                                remaining_seconds = (end_time_utc - now_utc).total_seconds()
+                                
+                                if remaining_seconds > 0:
+                                    self.chain_tasks[channel_id] = self.loop.create_task(
+                                        wait_for_chain_start(channel, countdown_seconds=remaining_seconds)
+                                    )
+                                    logger.info(f"Resumed countdown for channel {channel_id} with {remaining_seconds:.0f}s remaining.")
+                                else:
+                                    # Countdown is over, start the tracker immediately
+                                    logger.info(f"Countdown for channel {channel_id} finished while bot was offline. Starting tracker.")
+                                    self.chain_tasks[channel_id] = self.loop.create_task(
+                                        track_chain_progress(channel, initial_hits=0)
+                                    )
+                            else:
+                                logger.warning(f"Cannot resume countdown for {channel_id}: 'end_time_utc' not found.")
+                        
+                        elif status == 'active':
+                            # Restart active chain tracking
+                            logger.info(f"Restarting active chain tracking for channel {channel_id}")
                             self.chain_tasks[channel_id] = self.loop.create_task(
                                 track_chain_progress(channel, initial_hits=0)
                             )
                 
-                await asyncio.sleep(300)  # Check every 5 minutes
+                await asyncio.sleep(60)  # Check every 60 seconds
             except Exception as e:
                 logger.error(f"Error in check_chain_tasks: {e}")
                 await asyncio.sleep(60)  # Wait a minute before retrying if there's an error
@@ -212,17 +243,50 @@ async def setnick(interaction: discord.Interaction, name: str, user_id: str):
         )
         logging.error(f"Nickname change error: {e}")
 
+# A set to store recently processed interaction IDs to prevent duplicates
+processed_interaction_ids: Set[int] = set()
+
+
 @bot.tree.command(name="dm", description="Send yourself a DM with your message")
 @app_commands.describe(message="The message to send to yourself")
 async def dm(interaction: discord.Interaction, message: str):
+    # Check if this interaction has already been processed
+    if interaction.id in processed_interaction_ids:
+        logger.warning(f"Duplicate DM interaction detected ({interaction.id}). Ignoring.")
+        # We can't respond to an interaction more than once.
+        # If we get here, it means we've likely already responded.
+        # We can attempt to send an ephemeral message, but it may fail.
+        try:
+            await interaction.response.send_message("Duplicate command detected, ignoring.", ephemeral=True)
+        except discord.errors.InteractionResponded:
+            pass  # Expected if this is a true duplicate
+        return
+
     try:
+        # Add the interaction ID to our set of processed IDs
+        processed_interaction_ids.add(interaction.id)
+
         await interaction.user.send(f"You said🗣️: {message}")
         await interaction.response.send_message("Message sent to your DMs!", ephemeral=True)
+
+        # Clean up the ID after a short delay to prevent the set from growing indefinitely
+        await asyncio.sleep(300)  # 5 minutes
+        processed_interaction_ids.discard(interaction.id)
+
     except discord.Forbidden:
         await interaction.response.send_message(
             "I couldn't send you a DM. Please check if you have DMs enabled.",
             ephemeral=True
         )
+    except Exception as e:
+        logger.error(f"An error occurred in the DM command: {e}")
+        # Try to send an error message if the interaction hasn't been responded to
+        if not interaction.response.is_done():
+            await interaction.response.send_message("An unexpected error occurred.", ephemeral=True)
+        
+        # Ensure the ID is removed on failure too
+        processed_interaction_ids.discard(interaction.id)
+
 
 @bot.tree.command(name="poll", description="Create a poll with yes/no voting")
 @app_commands.describe(question="The question to ask in the poll")
@@ -509,18 +573,17 @@ async def chain(interaction: discord.Interaction, time_str: str):
     
     bot.active_chains[interaction.channel.id] = {
         'message_id': chain_message.id,
-        'end_time': end_time,
         'end_time_utc': end_time_utc,
-        'timestamp': timestamp,
         'organizer': interaction.user.name,
-        'view': view
+        'view': view,
+        'status': 'countdown'  # Initial status
     }
     
-    # Create and store the chain tracking task
+    # Start the countdown task
     bot.chain_tasks[interaction.channel.id] = bot.loop.create_task(
-        track_chain_progress(interaction.channel, initial_hits=0)
+        wait_for_chain_start(interaction.channel, countdown_seconds=seconds)
     )
-    logger.info(f"Started chain tracking for channel {interaction.channel.id}")
+    logger.info(f"Started chain countdown for channel {interaction.channel.id}")
 
 async def get_chain_leaderboard(faction_id: str = "53180") -> Optional[Dict]:
     """
@@ -724,6 +787,37 @@ async def track_chain_progress(channel, initial_hits: int = 0):
         if channel_id in bot.chain_tasks:
             del bot.chain_tasks[channel_id]
         logger.info(f"Cleaned up chain tracking for channel {channel_id}")
+
+async def wait_for_chain_start(channel: discord.TextChannel, countdown_seconds: int):
+    """
+    Waits for the countdown to finish, then starts the chain tracking.
+    This task is responsible for the 'countdown' phase.
+    """
+    try:
+        await asyncio.sleep(countdown_seconds)
+
+        # Check if the chain is still active in the bot's state
+        if channel.id in bot.active_chains:
+            # Announce the start of the chain
+            await channel.send("⛓️ The chain is starting now! Go for it!")
+
+            # Transition the state from 'countdown' to 'active'
+            bot.active_chains[channel.id]['status'] = 'active'
+            
+            # Create and store the actual tracking task
+            # This task will be monitored by check_chain_tasks
+            bot.chain_tasks[channel.id] = bot.loop.create_task(
+                track_chain_progress(channel, initial_hits=0)
+            )
+            logger.info(f"Chain tracking task started for channel {channel.id} after countdown.")
+        else:
+            logger.info(f"Chain in {channel.id} was cancelled during countdown, not starting tracker.")
+
+    except asyncio.CancelledError:
+        logger.info(f"Countdown task for channel {channel.id} was cancelled.")
+        raise  # Propagate cancellation
+    except Exception as e:
+        logger.error(f"Error in wait_for_chain_start for {channel.id}: {e}")
 
 @bot.tree.command(name="chainboard", description="Show current chain leaderboard")
 @app_commands.guild_only()
