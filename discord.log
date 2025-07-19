@@ -174,3 +174,162 @@
 [2025-07-18 16:57:13] [DEBUG   ] discord.gateway: For Shard ID None: WebSocket Event: {'t': 'MESSAGE_CREATE', 's': 36, 'op': 0, 'd': {'type': 0, 'tts': False, 'timestamp': '2025-07-18T12:57:12.745000+00:00', 'pinned': False, 'nonce': '1395751262355456000', 'mentions': [{'username': 'blackc01', 'public_flags': 0, 'primary_guild': None, 'member': {'roles': ['1331522925807013949'], 'premium_since': None, 'pending': False, 'nick': 'blackc (3165846)', 'mute': False, 'joined_at': '2025-01-18T05:53:08.707000+00:00', 'flags': 0, 'deaf': False, 'communication_disabled_until': None, 'banner': None, 'avatar': None}, 'id': '383291413187657730', 'global_name': 'blackc', 'display_name_styles': None, 'discriminator': '0', 'collectibles': None, 'clan': None, 'avatar_decoration_data': None, 'avatar': None}], 'mention_roles': [], 'mention_everyone': False, 'member': {'roles': ['1331520573083484236'], 'premium_since': None, 'pending': False, 'nick': 'MustardMachine [3696075]', 'mute': False, 'joined_at': '2025-06-13T20:34:54.083000+00:00', 'flags': 0, 'deaf': False, 'communication_disabled_until': None, 'banner': None, 'avatar': None}, 'id': '1395751262334615633', 'flags': 0, 'embeds': [], 'edited_timestamp': None, 'content': '<@383291413187657730> Do you prefer smaller or larger amounts of xanax in a single trade? Like 20 or 100?', 'components': [], 'channel_type': 0, 'channel_id': '1330149488496480286', 'author': {'username': 'femurmuertez', 'public_flags': 0, 'primary_guild': None, 'id': '299628733994893312', 'global_name': 'FemurMuertez', 'display_name_styles': None, 'discriminator': '0', 'collectibles': None, 'clan': None, 'avatar_decoration_data': None, 'avatar': 'baac49a4080c4b18cf98c3a4be52e7b9'}, 'attachments': [], 'guild_id': '1330052338584518747'}}
 [2025-07-18 16:57:13] [DEBUG   ] discord.client: Dispatching event socket_event_type
 [2025-07-18 16:57:13] [DEBUG   ] discord.client: Dispatching event message
+2025-07-19 14:31:47,577 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-19 14:34:26,506 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-19 14:34:26,506 - __main__ - INFO - ChainBot initialized
+2025-07-19 14:34:26,509 - discord.client - INFO - logging in using static token
+2025-07-19 14:34:27,667 - __main__ - INFO - Setup hook completed
+2025-07-19 14:34:28,227 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 4082a559e394006aa9a332cefceb256e).
+2025-07-19 14:34:30,242 - __main__ - INFO - Logged in as bot_batfrog#4676
+2025-07-19 14:34:31,185 - __main__ - INFO - Synced 6 command(s)
+2025-07-19 14:35:08,480 - __main__ - INFO - Started chain countdown for channel 1267369188578820147
+2025-07-19 14:40:09,099 - __main__ - INFO - Chain tracking task started for channel 1267369188578820147 after countdown.
+2025-07-19 14:40:39,782 - __main__ - INFO - Initial leaderboard message sent
+2025-07-19 14:40:39,782 - __main__ - INFO - Chain is no longer active
+2025-07-19 14:40:40,219 - __main__ - INFO - Chain tracking completed successfully
+2025-07-19 14:40:40,219 - __main__ - INFO - Cleaned up chain tracking for channel 1267369188578820147
+2025-07-19 15:11:54,494 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-19 15:11:54,495 - __main__ - INFO - ChainBot initialized
+2025-07-19 15:11:54,497 - discord.client - INFO - logging in using static token
+2025-07-19 15:11:55,581 - __main__ - INFO - Setup hook completed
+2025-07-19 15:11:56,418 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 055b6bbd7b97b97d3127b9d57bb59485).
+2025-07-19 15:11:58,432 - __main__ - INFO - Logged in as bot_batfrog#4676
+2025-07-19 15:11:58,991 - __main__ - INFO - Synced 6 command(s)
+2025-07-19 15:18:30,389 - __main__ - INFO - Started chain countdown for channel 1267369188578820147
+2025-07-19 15:18:30,882 - __main__ - ERROR - Error in update_countdown_message for 1267369188578820147: 'timestamp'
+2025-07-19 15:18:58,524 - __main__ - INFO - Restarting task for channel 1267369188578820147 with status 'countdown'
+2025-07-19 15:18:58,524 - __main__ - INFO - Resumed countdown for channel 1267369188578820147 with 1771s remaining.
+2025-07-19 15:19:11,456 - __main__ - INFO - Countdown task for channel 1267369188578820147 was cancelled.
+2025-07-19 15:19:11,456 - __main__ - INFO - Countdown task for channel 1267369188578820147 was cancelled.
+2025-07-19 15:19:16,444 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-19 15:19:16,445 - __main__ - INFO - ChainBot initialized
+2025-07-19 15:19:16,446 - discord.client - INFO - logging in using static token
+2025-07-19 15:19:17,460 - __main__ - INFO - Setup hook completed
+2025-07-19 15:19:18,125 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 1f66daadbccb1b9cef464a6bb957b663).
+2025-07-19 15:19:20,145 - __main__ - INFO - Logged in as bot_batfrog#4676
+2025-07-19 15:19:20,693 - __main__ - INFO - Synced 6 command(s)
+2025-07-19 15:21:42,310 - __main__ - INFO - Started chain countdown for channel 1267369188578820147
+2025-07-19 15:21:42,852 - __main__ - ERROR - Error in update_countdown_message for 1267369188578820147: 'timestamp'
+2025-07-19 15:22:20,156 - __main__ - INFO - Restarting task for channel 1267369188578820147 with status 'countdown'
+2025-07-19 15:22:20,156 - __main__ - INFO - Resumed countdown for channel 1267369188578820147 with 1762s remaining.
+2025-07-19 15:24:17,844 - __main__ - INFO - Countdown task for channel 1267369188578820147 was cancelled.
+2025-07-19 15:24:17,844 - __main__ - INFO - Countdown task for channel 1267369188578820147 was cancelled.
+2025-07-19 15:24:22,177 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-19 15:24:22,177 - __main__ - INFO - ChainBot initialized
+2025-07-19 15:24:22,179 - discord.client - INFO - logging in using static token
+2025-07-19 15:24:23,260 - __main__ - INFO - Setup hook completed
+2025-07-19 15:24:23,850 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: fae83259c380e47268ac13d7d3ca436d).
+2025-07-19 15:24:25,886 - __main__ - INFO - Logged in as bot_batfrog#4676
+2025-07-19 15:24:26,497 - __main__ - INFO - Synced 6 command(s)
+2025-07-19 15:27:17,769 - discord.app_commands.tree - ERROR - Ignoring exception in command 'chain'
+Traceback (most recent call last):
+  File "C:\Users\PC\AppData\Local\Programs\Python\Python310\lib\site-packages\discord\app_commands\commands.py", line 858, in _do_call
+    return await self._callback(interaction, **params)  # type: ignore
+  File "c:\Users\PC\TornDiscordBot\main.py", line 573, in chain
+    view = ChainView(chain_data)
+UnboundLocalError: local variable 'chain_data' referenced before assignment
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\PC\AppData\Local\Programs\Python\Python310\lib\site-packages\discord\app_commands\tree.py", line 1310, in _call
+    await command._invoke_with_namespace(interaction, namespace)
+  File "C:\Users\PC\AppData\Local\Programs\Python\Python310\lib\site-packages\discord\app_commands\commands.py", line 883, in _invoke_with_namespace
+    return await self._do_call(interaction, transformed_values)
+  File "C:\Users\PC\AppData\Local\Programs\Python\Python310\lib\site-packages\discord\app_commands\commands.py", line 876, in _do_call
+    raise CommandInvokeError(self, e) from e
+discord.app_commands.errors.CommandInvokeError: Command 'chain' raised an exception: UnboundLocalError: local variable 'chain_data' referenced before assignment
+2025-07-19 15:29:00,383 - discord.app_commands.tree - ERROR - Ignoring exception in command 'chain'
+Traceback (most recent call last):
+  File "C:\Users\PC\AppData\Local\Programs\Python\Python310\lib\site-packages\discord\app_commands\commands.py", line 858, in _do_call
+    return await self._callback(interaction, **params)  # type: ignore
+  File "c:\Users\PC\TornDiscordBot\main.py", line 573, in chain
+    view = ChainView(chain_data)
+UnboundLocalError: local variable 'chain_data' referenced before assignment
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\PC\AppData\Local\Programs\Python\Python310\lib\site-packages\discord\app_commands\tree.py", line 1310, in _call
+    await command._invoke_with_namespace(interaction, namespace)
+  File "C:\Users\PC\AppData\Local\Programs\Python\Python310\lib\site-packages\discord\app_commands\commands.py", line 883, in _invoke_with_namespace
+    return await self._do_call(interaction, transformed_values)
+  File "C:\Users\PC\AppData\Local\Programs\Python\Python310\lib\site-packages\discord\app_commands\commands.py", line 876, in _do_call
+    raise CommandInvokeError(self, e) from e
+discord.app_commands.errors.CommandInvokeError: Command 'chain' raised an exception: UnboundLocalError: local variable 'chain_data' referenced before assignment
+2025-07-19 15:29:19,744 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-19 15:29:19,745 - __main__ - INFO - ChainBot initialized
+2025-07-19 15:29:19,748 - discord.client - INFO - logging in using static token
+2025-07-19 15:29:20,915 - __main__ - INFO - Setup hook completed
+2025-07-19 15:29:21,627 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 5d487a9154863be3bcd661f398d8d51d).
+2025-07-19 15:29:23,640 - __main__ - INFO - Logged in as bot_batfrog#4676
+2025-07-19 15:29:24,267 - __main__ - INFO - Synced 6 command(s)
+2025-07-19 15:29:26,647 - discord.app_commands.tree - ERROR - Ignoring exception in command 'chain'
+Traceback (most recent call last):
+  File "C:\Users\PC\AppData\Local\Programs\Python\Python310\lib\site-packages\discord\app_commands\commands.py", line 858, in _do_call
+    return await self._callback(interaction, **params)  # type: ignore
+  File "c:\Users\PC\TornDiscordBot\main.py", line 573, in chain
+    view = ChainView(chain_data)
+UnboundLocalError: local variable 'chain_data' referenced before assignment
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\PC\AppData\Local\Programs\Python\Python310\lib\site-packages\discord\app_commands\tree.py", line 1310, in _call
+    await command._invoke_with_namespace(interaction, namespace)
+  File "C:\Users\PC\AppData\Local\Programs\Python\Python310\lib\site-packages\discord\app_commands\commands.py", line 883, in _invoke_with_namespace
+    return await self._do_call(interaction, transformed_values)
+  File "C:\Users\PC\AppData\Local\Programs\Python\Python310\lib\site-packages\discord\app_commands\commands.py", line 876, in _do_call
+    raise CommandInvokeError(self, e) from e
+discord.app_commands.errors.CommandInvokeError: Command 'chain' raised an exception: UnboundLocalError: local variable 'chain_data' referenced before assignment
+2025-07-19 15:31:38,789 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-19 15:31:38,790 - __main__ - INFO - ChainBot initialized
+2025-07-19 15:31:38,792 - discord.client - INFO - logging in using static token
+2025-07-19 15:31:39,843 - __main__ - INFO - Setup hook completed
+2025-07-19 15:31:40,413 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 084a112375ba69d166ae846fc3aa4495).
+2025-07-19 15:31:42,439 - __main__ - INFO - Logged in as bot_batfrog#4676
+2025-07-19 15:31:42,969 - __main__ - INFO - Synced 6 command(s)
+2025-07-19 15:31:55,989 - discord.app_commands.tree - ERROR - Ignoring exception in command 'chain'
+Traceback (most recent call last):
+  File "C:\Users\PC\AppData\Local\Programs\Python\Python310\lib\site-packages\discord\app_commands\commands.py", line 858, in _do_call
+    return await self._callback(interaction, **params)  # type: ignore
+  File "c:\Users\PC\TornDiscordBot\main.py", line 568, in chain
+    view = ChainView(chain_data)
+UnboundLocalError: local variable 'chain_data' referenced before assignment
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\PC\AppData\Local\Programs\Python\Python310\lib\site-packages\discord\app_commands\tree.py", line 1310, in _call
+    await command._invoke_with_namespace(interaction, namespace)
+  File "C:\Users\PC\AppData\Local\Programs\Python\Python310\lib\site-packages\discord\app_commands\commands.py", line 883, in _invoke_with_namespace
+    return await self._do_call(interaction, transformed_values)
+  File "C:\Users\PC\AppData\Local\Programs\Python\Python310\lib\site-packages\discord\app_commands\commands.py", line 876, in _do_call
+    raise CommandInvokeError(self, e) from e
+discord.app_commands.errors.CommandInvokeError: Command 'chain' raised an exception: UnboundLocalError: local variable 'chain_data' referenced before assignment
+2025-07-19 15:33:44,199 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-19 15:33:44,200 - discord - INFO - ChainBot initialized
+2025-07-19 15:33:44,201 - discord.client - INFO - logging in using static token
+2025-07-19 15:33:45,261 - discord - INFO - Setup hook completed
+2025-07-19 15:33:45,871 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 48e596c80f1b4f95480e4f34b7eefa19).
+2025-07-19 15:33:47,876 - discord - INFO - Logged in as bot_batfrog#4676
+2025-07-19 15:33:48,746 - discord - INFO - Synced 6 command(s)
+2025-07-19 15:33:58,058 - discord - INFO - Started chain tracking for channel 1267369188578820147
+2025-07-19 15:34:04,686 - discord - INFO - Chain tracking task cancelled
+2025-07-19 15:34:04,686 - discord - INFO - Chain tracking task cancelled
+2025-07-19 15:34:04,687 - discord - INFO - Cleaned up chain tracking for channel 1267369188578820147
+2025-07-19 15:34:33,101 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-19 15:34:33,101 - discord - INFO - ChainBot initialized
+2025-07-19 15:34:33,103 - discord.client - INFO - logging in using static token
+2025-07-19 15:34:35,189 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 5c8beabc2aebb8ccd759673477802450).
+2025-07-19 15:34:37,204 - discord - INFO - Logged in as bot_batfrog#4676
+2025-07-19 15:34:37,699 - discord - INFO - Synced 6 command(s)
+2025-07-19 15:44:11,907 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-19 15:44:11,908 - discord - INFO - ChainBot initialized
+2025-07-19 15:44:11,910 - discord.client - INFO - logging in using static token
+2025-07-19 15:44:13,475 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 3c9e09ca7d64b5f6b94e1f83a1f6fbbf).
+2025-07-19 15:44:15,478 - discord - INFO - Logged in as bot_batfrog#4676
+2025-07-19 15:44:16,036 - discord - INFO - Synced 6 command(s)
+2025-07-19 15:59:28,568 - root - ERROR - Chain error: 401 Unauthorized (error code: 50027): Invalid Webhook Token
+2025-07-19 16:15:25,522 - discord.gateway - INFO - Shard ID None has successfully RESUMED session 3c9e09ca7d64b5f6b94e1f83a1f6fbbf.
+2025-07-19 16:22:47,791 - root - ERROR - Chain error: 401 Unauthorized (error code: 50027): Invalid Webhook Token
