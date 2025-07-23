@@ -550,3 +550,28 @@ discord.app_commands.errors.CommandInvokeError: Command 'chain' raised an except
 2025-07-23 22:11:10,037 - discord - INFO - War chain started in channel 1267369188578820147 by mr.bashar
 2025-07-23 22:11:15,001 - discord - INFO - Successfully saved active chains to disk.
 2025-07-23 22:12:15,012 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 22:15:08,646 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 22:15:08,647 - discord - INFO - Chain started in channel 1267369188578820147 by mr.bashar
+2025-07-23 22:15:30,327 - root - INFO - Chain in channel 1267369188578820147 was cancelled. Stopping countdown.
+2025-07-23 22:15:30,330 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 22:15:31,594 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 22:16:24,932 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 22:16:24,935 - discord - INFO - Chain started in channel 1267369188578820147 by mr.bashar
+2025-07-23 22:16:39,989 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 22:16:43,050 - root - INFO - Chain in channel 1267369188578820147 was cancelled. Stopping countdown.
+2025-07-23 22:16:43,053 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 22:16:56,831 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 22:16:56,832 - discord - INFO - Chain started in channel 1267369188578820147 by mr.bashar
+2025-07-23 22:18:27,617 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 22:18:33,215 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-23 22:18:33,215 - discord - INFO - ChainBot initialized
+2025-07-23 22:18:33,226 - discord.client - INFO - logging in using static token
+2025-07-23 22:18:35,766 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 03b91993cd509704a45581878c923546).
+2025-07-23 22:18:37,793 - discord - INFO - Logged in as bot_batfrog#4676
+2025-07-23 22:18:37,794 - discord - INFO - Attempting to load and resume chains from disk...
+2025-07-23 22:18:38,242 - discord - INFO - Synced 7 command(s)
+2025-07-23 22:19:04,298 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 22:19:04,299 - discord - INFO - Chain started in channel 1267369188578820147 by mr.bashar
+2025-07-23 22:19:31,438 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 22:19:32,297 - root - INFO - Chain in channel 1267369188578820147 was cancelled. Stopping countdown.
+2025-07-23 22:19:32,299 - discord - INFO - Successfully saved active chains to disk.

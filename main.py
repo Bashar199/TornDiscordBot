@@ -615,9 +615,21 @@ async def manage_chain_lifecycle(channel_id: int):
             if is_war_chain:
                 embed.set_image(url="https://tenor.com/view/lets-go-charge-attack-battle-war-gif-21250118")
             
+            # Format the chain start time field differently based on whether it's today/tomorrow or a future date
+            now_utc = datetime.now(timezone.utc)
+            if end_time_utc.date() == now_utc.date():
+                time_str = "Today"
+            elif end_time_utc.date() == (now_utc + timedelta(days=1)).date():
+                time_str = "Tomorrow"
+            else:
+                time_str = end_time_utc.strftime("%d.%m.%Y")
+            
             embed.add_field(
                 name=f"{'War Chain' if is_war_chain else 'Chain'} Start Time",
-                value=f"Countdown: {format_time_remaining(int(remaining))}\nStarts at: {end_time_utc.strftime('%H:%M')} TC\nYour local time: <t:{timestamp}:t>",
+                value=f"Countdown: {format_time_remaining(int(remaining))}\n" +
+                      f"Date: {time_str}\n" +
+                      f"Time: {end_time_utc.strftime('%H:%M')} TC\n" +
+                      f"Your local time: <t:{timestamp}:F>",
                 inline=False
             )
             
