@@ -324,9 +324,37 @@ async def poll(interaction: discord.Interaction, question: str):
 
 def parse_time(time_str: str) -> Tuple[Optional[int], Optional[datetime]]:
     """
-    Convert time string like '5h', '30m', or '18:00TC' to seconds and target UTC time
+    Convert time string like '5h', '30m', '18:00TC', or '18:00TC at 25.12.2024' to seconds and target UTC time
     Returns (seconds_until_target, target_utc_datetime)
     """
+    # Check for TC time with date format (e.g., 18:00TC at 25.12.2024)
+    date_match = re.match(r'(\d{1,2}):(\d{2})tc at (\d{1,2})\.(\d{1,2})\.(\d{4})', time_str.lower())
+    if date_match:
+        tc_hour = int(date_match.group(1))
+        tc_minute = int(date_match.group(2))
+        day = int(date_match.group(3))
+        month = int(date_match.group(4))
+        year = int(date_match.group(5))
+        
+        if not (0 <= tc_hour <= 23) or not (0 <= tc_minute <= 59):
+            return None, None
+            
+        try:
+            # Create target datetime in UTC
+            target_time = datetime(year, month, day, tc_hour, tc_minute, 0, tzinfo=timezone.utc)
+            
+            # Check if date is in the past
+            now_utc = datetime.now(timezone.utc)
+            if target_time <= now_utc:
+                return None, None
+                
+            # Calculate seconds until target time
+            time_diff = target_time - now_utc
+            return int(time_diff.total_seconds()), target_time
+            
+        except ValueError:  # Invalid date
+            return None, None
+    
     # Check for TC time format (e.g., 18:00TC or 12:30TC)
     tc_match = re.match(r'(\d{1,2}):(\d{2})tc', time_str.lower())
     if tc_match:
@@ -461,6 +489,49 @@ class ChainButton(Button):
         # Save the updated state
         await save_active_chains()
 
+class CancelButton(Button):
+    def __init__(self):
+        super().__init__(style=discord.ButtonStyle.primary, label="Cancel Chain", custom_id="cancel_chain")
+        
+    async def callback(self, interaction: discord.Interaction):
+        assert self.view is not None
+        view: ChainView = self.view
+        
+        # Check if user is authorized to cancel
+        is_admin = any(role.name.lower() == "admin" for role in interaction.user.roles)
+        is_organizer = interaction.user.name == view.chain_data['organizer']
+        
+        if not (is_admin or is_organizer):
+            await interaction.response.send_message(
+                "❌ Only the chain organizer or admins can cancel the chain!",
+                ephemeral=True
+            )
+            return
+            
+        # Cancel the chain
+        channel_id = interaction.channel.id
+        if channel_id in view.bot.active_chains:
+            del view.bot.active_chains[channel_id]
+            
+            # Disable all buttons
+            view.disable_all_buttons()
+            
+            # Update the message
+            cancel_embed = discord.Embed(
+                title="❌ Chain Cancelled",
+                description=f"Chain was cancelled by {interaction.user.name}",
+                color=discord.Color.red()
+            )
+            await interaction.message.edit(embed=cancel_embed, view=view)
+            
+            await interaction.response.send_message("Chain has been cancelled!", ephemeral=True)
+            await save_active_chains()
+        else:
+            await interaction.response.send_message(
+                "This chain has already ended or been cancelled.",
+                ephemeral=True
+            )
+
 class ChainView(View):
     def __init__(self, bot_instance: ChainBot, chain_data: Dict):
         super().__init__(timeout=None)
@@ -480,14 +551,17 @@ class ChainView(View):
             label="Can't make it",
             is_join=False
         )
+        self.cancel_button = CancelButton()
         
         self.add_item(self.join_button)
         self.add_item(self.skip_button)
+        self.add_item(self.cancel_button)
     
     def disable_all_buttons(self):
         """Disable all buttons in the view"""
         self.join_button.disabled = True
         self.skip_button.disabled = True
+        self.cancel_button.disabled = True
 
 
 async def manage_chain_lifecycle(channel_id: int):
@@ -517,6 +591,9 @@ async def manage_chain_lifecycle(channel_id: int):
     timestamp = chain_info['timestamp']
     organizer_name = chain_info['organizer']
     
+    # Check if this is a war chain by looking at the original message's embed
+    is_war_chain = "⚔️" in chain_message.embeds[0].title if chain_message.embeds else False
+    
     try:
         while datetime.now(timezone.utc) < end_time_utc:
             if channel_id not in bot.active_chains:
@@ -530,20 +607,23 @@ async def manage_chain_lifecycle(channel_id: int):
                 remaining = 0
             
             embed = discord.Embed(
-                title="🔄 Upcoming Chain",
-                description="A new chain is being organized! Click the buttons below to indicate your participation:",
-                color=discord.Color.gold()
+                title="⚔️ Upcoming War Chain ⚔️" if is_war_chain else "🔄 Upcoming Chain",
+                description="A new war chain is being organized! Click the buttons below to indicate your participation:" if is_war_chain else "A new chain is being organized! Click the buttons below to indicate your participation:",
+                color=discord.Color.red() if is_war_chain else discord.Color.gold()
             )
             
+            if is_war_chain:
+                embed.set_image(url="https://tenor.com/view/lets-go-charge-attack-battle-war-gif-21250118")
+            
             embed.add_field(
-                name="Chain Start Time",
+                name=f"{'War Chain' if is_war_chain else 'Chain'} Start Time",
                 value=f"Countdown: {format_time_remaining(int(remaining))}\nStarts at: {end_time_utc.strftime('%H:%M')} TC\nYour local time: <t:{timestamp}:t>",
                 inline=False
             )
             
             joiners_text = "\n".join([f"• {name}" for _, name in view.joiners]) if view.joiners else "*No participants yet*"
             embed.add_field(
-                name=f"Participants ({len(view.joiners)})",
+                name=f"{'Warriors Ready' if is_war_chain else 'Participants'} ({len(view.joiners)})",
                 value=joiners_text,
                 inline=False
             )
@@ -557,11 +637,11 @@ async def manage_chain_lifecycle(channel_id: int):
             
             embed.add_field(
                 name="Options",
-                value="🟢 = I'll join the chain!\n🔴 = Can't make it",
+                value="🟢 = Ready for battle!\n🔴 = Can't make it" if is_war_chain else "🟢 = I'll join the chain!\n🔴 = Can't make it",
                 inline=False
             )
             
-            embed.set_footer(text=f"Chain organized by {organizer_name}")
+            embed.set_footer(text=f"{'War chain' if is_war_chain else 'Chain'} organized by {organizer_name}")
             
             try:
                 await chain_message.edit(embed=embed, view=view)
@@ -577,14 +657,14 @@ async def manage_chain_lifecycle(channel_id: int):
              return
 
         final_embed = discord.Embed(
-            title="🎯 Chain Starting!",
-            description="Time's up! The chain is starting now!",
-            color=discord.Color.green()
+            title="⚔️ War Chain Starting! ⚔️" if is_war_chain else "🎯 Chain Starting!",
+            description="Time's up! The war chain is starting now!" if is_war_chain else "Time's up! The chain is starting now!",
+            color=discord.Color.red() if is_war_chain else discord.Color.green()
         )
         
         joiners_text = "\n".join([f"• {name}" for _, name in view.joiners]) if view.joiners else "*No participants*"
         final_embed.add_field(
-            name=f"Final Participants ({len(view.joiners)})",
+            name=f"Final {'Warriors' if is_war_chain else 'Participants'} ({len(view.joiners)})",
             value=joiners_text,
             inline=False
         )
@@ -592,19 +672,14 @@ async def manage_chain_lifecycle(channel_id: int):
         if view.joiners:
             mentions = [f"<@{user_id}>" for user_id, _ in view.joiners]
             mentions_text = " ".join(mentions)
-            await channel.send(f"🔔 Chain is starting! {mentions_text}")
+            if is_war_chain:
+                await channel.send("https://tenor.com/view/lets-go-charge-attack-battle-war-gif-21250118")
+                await channel.send(f"⚔️ War chain is starting! {mentions_text}")
+            else:
+                await channel.send(f"🔔 Chain is starting! {mentions_text}")
         
         view.disable_all_buttons()
         await chain_message.edit(embed=final_embed, view=view)
-        
-        await channel.send("🔗 Starting chain leaderboard tracking...")
-        
-        initial_chain_data = await get_chain_leaderboard()
-        initial_hits = 0
-        if initial_chain_data:
-            _, initial_hits, _ = process_chain_data(initial_chain_data)
-        
-        asyncio.create_task(track_chain_progress(channel, initial_hits))
         
     except Exception as e:
         logging.error(f"Chain lifecycle management error: {e}")
@@ -618,7 +693,9 @@ async def manage_chain_lifecycle(channel_id: int):
         await save_active_chains()
 
 @bot.tree.command(name="chain", description="Organize a chain with a countdown timer")
-@app_commands.describe(time_str="Time until chain starts (e.g., '5h' for 5 hours, '30m' for 30 minutes, '18:00TC' for TC time)")
+@app_commands.describe(
+    time_str="Time until chain starts: '5h', '30m', '18:00TC', or '18:00TC at DD.MM.YYYY' (e.g., '18:00TC at 25.12.2024')"
+)
 @app_commands.guild_only()
 async def chain(interaction: discord.Interaction, time_str: str):
     # Defer the response immediately to prevent timeout
@@ -641,7 +718,11 @@ async def chain(interaction: discord.Interaction, time_str: str):
     seconds, end_time_utc = parse_time(time_str)
     if seconds is None or end_time_utc is None:
         await interaction.followup.send(
-            "❌ Invalid time format! Use something like '5h' for 5 hours, '30m' for 30 minutes, or '18:00TC' for TC time.",
+            "❌ Invalid time format! Use one of these formats:\n" +
+            "• '5h' for 5 hours\n" +
+            "• '30m' for 30 minutes\n" +
+            "• '18:00TC' for TC time today/tomorrow\n" +
+            "• '18:00TC at 25.12.2024' for a specific date",
             ephemeral=True
         )
         return
@@ -654,9 +735,21 @@ async def chain(interaction: discord.Interaction, time_str: str):
         color=discord.Color.gold()
     )
     
+    # Format the chain start time field differently based on whether it's today/tomorrow or a future date
+    now_utc = datetime.now(timezone.utc)
+    if end_time_utc.date() == now_utc.date():
+        time_str = "Today"
+    elif end_time_utc.date() == (now_utc + timedelta(days=1)).date():
+        time_str = "Tomorrow"
+    else:
+        time_str = end_time_utc.strftime("%d.%m.%Y")
+    
     embed.add_field(
         name="Chain Start Time",
-        value=f"Countdown: {format_time_remaining(seconds)}\nStarts at: {end_time_utc.strftime('%H:%M')} TC\nYour local time: <t:{timestamp}:t>",
+        value=f"Countdown: {format_time_remaining(seconds)}\n" +
+              f"Date: {time_str}\n" +
+              f"Time: {end_time_utc.strftime('%H:%M')} TC\n" +
+              f"Your local time: <t:{timestamp}:F>",
         inline=False
     )
     
@@ -693,6 +786,104 @@ async def chain(interaction: discord.Interaction, time_str: str):
     await save_active_chains()
     asyncio.create_task(manage_chain_lifecycle(interaction.channel.id))
     logger.info(f"Chain started in channel {interaction.channel.id} by {interaction.user.name}")
+
+@bot.tree.command(name="warstart", description="Organize a war chain with a countdown timer")
+@app_commands.describe(
+    time_str="Time until chain starts: '5h', '30m', '18:00TC', or '18:00TC at DD.MM.YYYY' (e.g., '18:00TC at 25.12.2024')"
+)
+@app_commands.guild_only()
+async def warstart(interaction: discord.Interaction, time_str: str):
+    # Defer the response immediately to prevent timeout
+    await interaction.response.defer()
+
+    if not isinstance(interaction.channel, (discord.TextChannel, discord.Thread)):
+        await interaction.followup.send(
+            "War chains can only be created in text channels or threads!",
+            ephemeral=True
+        )
+        return
+    
+    if interaction.channel.id in bot.active_chains:
+        await interaction.followup.send(
+            "⚠️ There's already an active chain planned in this channel!",
+            ephemeral=True
+        )
+        return
+    
+    seconds, end_time_utc = parse_time(time_str)
+    if seconds is None or end_time_utc is None:
+        await interaction.followup.send(
+            "❌ Invalid time format! Use one of these formats:\n" +
+            "• '5h' for 5 hours\n" +
+            "• '30m' for 30 minutes\n" +
+            "• '18:00TC' for TC time today/tomorrow\n" +
+            "• '18:00TC at 25.12.2024' for a specific date",
+            ephemeral=True
+        )
+        return
+    
+    timestamp = int(end_time_utc.timestamp())
+    
+    embed = discord.Embed(
+        title="⚔️ Upcoming War Chain ⚔️",
+        description="A new war chain is being organized! Click the buttons below to indicate your participation:",
+        color=discord.Color.red()
+    )
+    
+    # Add the war GIF
+    embed.set_image(url="https://tenor.com/view/lets-go-charge-attack-battle-war-gif-21250118")
+    
+    # Format the chain start time field differently based on whether it's today/tomorrow or a future date
+    now_utc = datetime.now(timezone.utc)
+    if end_time_utc.date() == now_utc.date():
+        time_str = "Today"
+    elif end_time_utc.date() == (now_utc + timedelta(days=1)).date():
+        time_str = "Tomorrow"
+    else:
+        time_str = end_time_utc.strftime("%d.%m.%Y")
+    
+    embed.add_field(
+        name="War Chain Start Time",
+        value=f"Countdown: {format_time_remaining(seconds)}\n" +
+              f"Date: {time_str}\n" +
+              f"Time: {end_time_utc.strftime('%H:%M')} TC\n" +
+              f"Your local time: <t:{timestamp}:F>",
+        inline=False
+    )
+    
+    embed.add_field(
+        name="Warriors Ready",
+        value="*No warriors have joined yet*",
+        inline=False
+    )
+    
+    embed.add_field(
+        name="Options",
+        value="🟢 = Ready for battle!\n🔴 = Can't make it",
+        inline=False
+    )
+    
+    embed.set_footer(text=f"War chain organized by {interaction.user.name}")
+    
+    chain_data = {
+        'organizer': interaction.user.name
+    }
+    
+    view = ChainView(bot, chain_data)
+    await interaction.followup.send(embed=embed, view=view)
+    chain_message = await interaction.original_response()
+    
+    bot.active_chains[interaction.channel.id] = {
+        'message_id': chain_message.id,
+        'end_time_utc': end_time_utc,
+        'timestamp': timestamp,
+        'organizer': interaction.user.name,
+        'view': view
+    }
+    
+    await save_active_chains()
+    asyncio.create_task(manage_chain_lifecycle(interaction.channel.id))
+    logger.info(f"War chain started in channel {interaction.channel.id} by {interaction.user.name}")
 
 async def get_chain_leaderboard(faction_id: str = "53180") -> Optional[Dict]:
     """

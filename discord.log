@@ -352,3 +352,201 @@ discord.app_commands.errors.CommandInvokeError: Command 'chain' raised an except
 2025-07-19 19:39:01,294 - discord - INFO - Logged in as bot_batfrog#4676
 2025-07-19 19:39:01,791 - discord - INFO - Synced 6 command(s)
 2025-07-19 19:39:02,832 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 20:57:01,359 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-23 20:57:01,360 - discord - INFO - ChainBot initialized
+2025-07-23 20:57:01,366 - discord.client - INFO - logging in using static token
+2025-07-23 20:57:04,443 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 33c782431389a4d0fd4a626cf267c641).
+2025-07-23 20:57:06,463 - discord - INFO - Logged in as bot_batfrog#4676
+2025-07-23 20:57:06,463 - discord - INFO - Attempting to load and resume chains from disk...
+2025-07-23 20:57:06,917 - discord - INFO - Synced 6 command(s)
+2025-07-23 20:57:27,759 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 20:57:27,761 - discord - INFO - Chain started in channel 1384602107495055501 by mr.bashar
+2025-07-23 20:57:33,886 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:00:40,553 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-23 21:00:40,554 - discord - INFO - ChainBot initialized
+2025-07-23 21:00:40,586 - discord.client - INFO - logging in using static token
+2025-07-23 21:00:43,678 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 342673f984c133979daf702fda84bd41).
+2025-07-23 21:00:45,702 - discord - INFO - Logged in as bot_batfrog#4676
+2025-07-23 21:00:45,703 - discord - INFO - Attempting to load and resume chains from disk...
+2025-07-23 21:00:47,483 - discord - INFO - Synced 6 command(s)
+2025-07-23 21:00:58,311 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:00:58,315 - discord - INFO - Chain started in channel 1384602107495055501 by mr.bashar
+2025-07-23 21:03:30,909 - root - ERROR - Chain lifecycle management error: 503 Service Unavailable (error code: 0): upstream connect error or disconnect/reset before headers. reset reason: connection termination
+2025-07-23 21:03:31,930 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:05:09,912 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-23 21:05:09,913 - discord - INFO - ChainBot initialized
+2025-07-23 21:05:09,924 - discord.client - INFO - logging in using static token
+2025-07-23 21:05:14,639 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: f40572e453524967e304108d6c4df7a3).
+2025-07-23 21:05:16,693 - discord - INFO - Logged in as bot_batfrog#4676
+2025-07-23 21:05:16,694 - discord - INFO - Attempting to load and resume chains from disk...
+2025-07-23 21:05:17,060 - discord - INFO - Synced 6 command(s)
+2025-07-23 21:05:40,139 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:05:40,141 - discord - INFO - Chain started in channel 1267369188578820147 by mr.bashar
+2025-07-23 21:09:26,436 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:09:26,439 - discord - INFO - Chain started in channel 1200539437348700240 by mr.bashar
+2025-07-23 21:09:43,766 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:09:43,768 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:09:58,346 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-23 21:09:58,346 - discord - INFO - ChainBot initialized
+2025-07-23 21:09:58,357 - discord.client - INFO - logging in using static token
+2025-07-23 21:10:01,218 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 509f005db4c98561ca77645de75e8780).
+2025-07-23 21:10:03,248 - discord - INFO - Logged in as bot_batfrog#4676
+2025-07-23 21:10:03,248 - discord - INFO - Attempting to load and resume chains from disk...
+2025-07-23 21:10:03,709 - discord - INFO - Synced 6 command(s)
+2025-07-23 21:10:09,645 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:10:09,648 - discord - INFO - Chain started in channel 1200539437348700240 by mr.bashar
+2025-07-23 21:13:12,741 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:13:15,663 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-23 21:13:15,664 - discord - INFO - ChainBot initialized
+2025-07-23 21:13:15,667 - discord.client - INFO - logging in using static token
+2025-07-23 21:13:20,019 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 10ff8c2a3d671a53a470b11805c73a8e).
+2025-07-23 21:13:22,038 - discord - INFO - Logged in as bot_batfrog#4676
+2025-07-23 21:13:22,040 - discord - INFO - Attempting to load and resume chains from disk...
+2025-07-23 21:13:22,900 - discord - INFO - Synced 6 command(s)
+2025-07-23 21:14:58,444 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:14:58,448 - discord - INFO - Chain started in channel 1200539437348700240 by mr.bashar
+2025-07-23 21:15:18,637 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:15:20,563 - root - INFO - Chain in channel 1200539437348700240 was cancelled. Stopping countdown.
+2025-07-23 21:15:20,565 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:17:40,743 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-23 21:17:40,745 - discord - INFO - ChainBot initialized
+2025-07-23 21:17:40,748 - discord.client - INFO - logging in using static token
+2025-07-23 21:17:43,464 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: a6ec753d6bf3c54ed978122812280214).
+2025-07-23 21:17:45,485 - discord - INFO - Logged in as bot_batfrog#4676
+2025-07-23 21:17:45,486 - discord - INFO - Attempting to load and resume chains from disk...
+2025-07-23 21:17:45,931 - discord - INFO - Synced 6 command(s)
+2025-07-23 21:18:13,007 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:18:13,009 - discord - INFO - Chain started in channel 1200539437348700240 by mr.bashar
+2025-07-23 21:18:22,794 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:18:24,126 - root - INFO - Chain in channel 1200539437348700240 was cancelled. Stopping countdown.
+2025-07-23 21:18:24,128 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:18:45,314 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:18:45,315 - discord - INFO - Chain started in channel 1200539437348700240 by mr.bashar
+2025-07-23 21:18:54,831 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:18:56,583 - root - INFO - Chain in channel 1200539437348700240 was cancelled. Stopping countdown.
+2025-07-23 21:18:56,585 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:24:28,577 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-23 21:24:28,578 - discord - INFO - ChainBot initialized
+2025-07-23 21:26:46,944 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-23 21:26:46,945 - discord - INFO - ChainBot initialized
+2025-07-23 21:26:46,955 - discord.client - INFO - logging in using static token
+2025-07-23 21:26:49,650 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 8016acbe4bd7fa360830acd38cc13c2e).
+2025-07-23 21:26:51,661 - discord - INFO - Logged in as bot_batfrog#4676
+2025-07-23 21:26:51,663 - discord - INFO - Attempting to load and resume chains from disk...
+2025-07-23 21:26:52,069 - discord - INFO - Synced 7 command(s)
+2025-07-23 21:27:16,227 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:27:16,228 - discord - INFO - Chain started in channel 1267369188578820147 by mr.bashar
+2025-07-23 21:27:23,732 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:27:27,461 - root - INFO - Chain in channel 1267369188578820147 was cancelled. Stopping countdown.
+2025-07-23 21:27:27,464 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:27:38,704 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:27:38,709 - discord - INFO - Chain started in channel 1267369188578820147 by mr.bashar
+2025-07-23 21:27:51,228 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:27:54,715 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:27:55,401 - root - INFO - Chain in channel 1267369188578820147 was cancelled. Stopping countdown.
+2025-07-23 21:27:55,404 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:30:23,167 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:30:23,169 - discord - INFO - War chain started in channel 1267369188578820147 by mr.bashar
+2025-07-23 21:30:37,258 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:31:25,328 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:51:15,903 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-23 21:51:15,904 - discord - INFO - ChainBot initialized
+2025-07-23 21:51:15,910 - discord.client - INFO - logging in using static token
+2025-07-23 21:51:49,771 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-23 21:51:49,772 - discord - INFO - ChainBot initialized
+2025-07-23 21:51:49,776 - discord.client - INFO - logging in using static token
+2025-07-23 21:51:52,924 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 643a15410786f2bd7ae3c4e7d3ea3cc0).
+2025-07-23 21:51:54,945 - discord - INFO - Logged in as bot_batfrog#4676
+2025-07-23 21:51:54,946 - discord - INFO - Attempting to load and resume chains from disk...
+2025-07-23 21:51:56,142 - discord - INFO - Synced 7 command(s)
+2025-07-23 21:52:07,213 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:52:07,216 - discord - INFO - War chain started in channel 1267369188578820147 by mr.bashar
+2025-07-23 21:53:07,337 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:54:31,069 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-23 21:54:31,070 - discord - INFO - ChainBot initialized
+2025-07-23 21:54:31,077 - discord.client - INFO - logging in using static token
+2025-07-23 21:54:33,810 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: f9d16463a057d349be847b84842e62a4).
+2025-07-23 21:54:35,843 - discord - INFO - Logged in as bot_batfrog#4676
+2025-07-23 21:54:35,843 - discord - INFO - Attempting to load and resume chains from disk...
+2025-07-23 21:54:36,401 - discord - INFO - Synced 7 command(s)
+2025-07-23 21:54:50,852 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:54:50,858 - discord - INFO - War chain started in channel 1267369188578820147 by mr.bashar
+2025-07-23 21:55:34,980 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:55:52,283 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:56:12,647 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:56:12,648 - discord - INFO - War chain started in channel 1267369188578820147 by mr.bashar
+2025-07-23 21:56:24,626 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:57:14,391 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:57:35,288 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-23 21:57:35,289 - discord - INFO - ChainBot initialized
+2025-07-23 21:57:35,311 - discord.client - INFO - logging in using static token
+2025-07-23 21:57:38,043 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 850220f30f6bab1a82186ed2d0658463).
+2025-07-23 21:57:40,052 - discord - INFO - Logged in as bot_batfrog#4676
+2025-07-23 21:57:40,054 - discord - INFO - Attempting to load and resume chains from disk...
+2025-07-23 21:57:40,528 - discord - INFO - Synced 7 command(s)
+2025-07-23 21:57:48,611 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-23 21:57:48,612 - discord - INFO - ChainBot initialized
+2025-07-23 21:57:48,614 - discord.client - INFO - logging in using static token
+2025-07-23 21:57:51,511 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 5adcc145f40c489ff5f807cfe7a10d3a).
+2025-07-23 21:57:53,528 - discord - INFO - Logged in as bot_batfrog#4676
+2025-07-23 21:57:53,529 - discord - INFO - Attempting to load and resume chains from disk...
+2025-07-23 21:57:59,777 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:57:59,779 - discord - INFO - War chain started in channel 1267369188578820147 by mr.bashar
+2025-07-23 21:58:09,169 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:58:11,017 - root - INFO - Chain in channel 1267369188578820147 was cancelled. Stopping countdown.
+2025-07-23 21:58:11,021 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 21:58:40,480 - discord - INFO - Synced 7 command(s)
+2025-07-23 22:01:02,694 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-23 22:01:02,695 - discord - INFO - ChainBot initialized
+2025-07-23 22:01:02,708 - discord.client - INFO - logging in using static token
+2025-07-23 22:01:05,407 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: cb0ba2f7d24d0f7ac587073ac8c51570).
+2025-07-23 22:01:07,438 - discord - INFO - Logged in as bot_batfrog#4676
+2025-07-23 22:01:07,439 - discord - INFO - Attempting to load and resume chains from disk...
+2025-07-23 22:01:07,887 - discord - INFO - Synced 7 command(s)
+2025-07-23 22:01:25,740 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 22:01:25,742 - discord - INFO - War chain started in channel 1267369188578820147 by mr.bashar
+2025-07-23 22:01:46,722 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 22:02:28,390 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 22:05:02,817 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-23 22:05:02,818 - discord - INFO - ChainBot initialized
+2025-07-23 22:05:02,825 - discord.client - INFO - logging in using static token
+2025-07-23 22:05:05,429 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 160063520a5038f6960a7dc7e8b0bdd3).
+2025-07-23 22:05:07,445 - discord - INFO - Logged in as bot_batfrog#4676
+2025-07-23 22:05:07,446 - discord - INFO - Attempting to load and resume chains from disk...
+2025-07-23 22:05:07,801 - discord - INFO - Synced 7 command(s)
+2025-07-23 22:05:12,083 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 22:05:12,085 - discord - INFO - War chain started in channel 1267369188578820147 by mr.bashar
+2025-07-23 22:05:34,822 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 22:05:42,932 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 22:05:45,284 - root - INFO - Chain in channel 1267369188578820147 was cancelled. Stopping countdown.
+2025-07-23 22:05:45,287 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 22:05:54,764 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 22:05:54,766 - discord - INFO - Chain started in channel 1267369188578820147 by mr.bashar
+2025-07-23 22:06:04,290 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 22:06:05,861 - root - INFO - Chain in channel 1267369188578820147 was cancelled. Stopping countdown.
+2025-07-23 22:06:05,864 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 22:06:17,728 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 22:06:17,730 - discord - INFO - War chain started in channel 1267369188578820147 by mr.bashar
+2025-07-23 22:07:19,842 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 22:08:41,910 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-23 22:08:41,911 - discord - INFO - ChainBot initialized
+2025-07-23 22:08:41,917 - discord.client - INFO - logging in using static token
+2025-07-23 22:08:45,080 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 7fbeb197475194cfacf2f4c4b346b98b).
+2025-07-23 22:08:47,095 - discord - INFO - Logged in as bot_batfrog#4676
+2025-07-23 22:08:47,096 - discord - INFO - Attempting to load and resume chains from disk...
+2025-07-23 22:08:47,550 - discord - INFO - Synced 7 command(s)
+2025-07-23 22:08:54,074 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 22:08:54,074 - discord - INFO - War chain started in channel 1267369188578820147 by mr.bashar
+2025-07-23 22:09:03,393 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 22:09:59,262 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 22:10:39,686 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-07-23 22:10:39,687 - discord - INFO - ChainBot initialized
+2025-07-23 22:10:39,690 - discord.client - INFO - logging in using static token
+2025-07-23 22:10:42,795 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 3fa0a91b9342fa061fbc535ee50a952d).
+2025-07-23 22:10:44,816 - discord - INFO - Logged in as bot_batfrog#4676
+2025-07-23 22:10:44,817 - discord - INFO - Attempting to load and resume chains from disk...
+2025-07-23 22:10:45,229 - discord - INFO - Synced 7 command(s)
+2025-07-23 22:11:10,035 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 22:11:10,037 - discord - INFO - War chain started in channel 1267369188578820147 by mr.bashar
+2025-07-23 22:11:15,001 - discord - INFO - Successfully saved active chains to disk.
+2025-07-23 22:12:15,012 - discord - INFO - Successfully saved active chains to disk.
