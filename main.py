@@ -262,7 +262,7 @@ async def setnick(interaction: discord.Interaction, name: str, user_id: str):
 @app_commands.describe(message="The message to send to yourself")
 async def dm(interaction: discord.Interaction, message: str):
     try:
-        await interaction.user.send(f"You said🗣️ .: {message}")
+        await interaction.user.send(f"You said🗣️ {interaction.user.mention}: {message}")
         await interaction.response.send_message("Message sent to your DMs!", ephemeral=True)
     except discord.Forbidden:
         await interaction.response.send_message(
