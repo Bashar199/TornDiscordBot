@@ -613,7 +613,7 @@ async def manage_chain_lifecycle(channel_id: int):
             )
             
             if is_war_chain:
-                embed.set_image(url="https://tenor.com/view/lets-go-charge-attack-battle-war-gif-21250118")
+                embed.set_image(url="https://media1.tenor.com/m/K4PCQnnhSZcAAAAd/lets-go-charge.gif")
             
             # Format the chain start time field differently based on whether it's today/tomorrow or a future date
             now_utc = datetime.now(timezone.utc)
