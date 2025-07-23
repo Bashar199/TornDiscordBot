@@ -324,10 +324,34 @@ async def poll(interaction: discord.Interaction, question: str):
 
 def parse_time(time_str: str) -> Tuple[Optional[int], Optional[datetime]]:
     """
-    Convert time string like '5h', '30m', or '18:00TC' to seconds and target UTC time
+    Convert time string like '5h', '30m', '18:00TC', or '18:00TC at 27.7.2025' to seconds and target UTC time
     Returns (seconds_until_target, target_utc_datetime)
     """
-    # Check for TC time format (e.g., 18:00TC or 12:30TC)
+    # Check for TC time with a specific date (e.g., 18:00TC at 27.7.2025)
+    tc_date_match = re.match(r'(\d{1,2}):(\d{2})tc\s+at\s+(\d{1,2})\.(\d{1,2})\.(\d{4})', time_str.lower())
+    if tc_date_match:
+        tc_hour, tc_minute, day, month, year = map(int, tc_date_match.groups())
+
+        if not (0 <= tc_hour <= 23) or not (0 <= tc_minute <= 59):
+            return None, None
+        
+        try:
+            # Construct the target datetime object with UTC timezone
+            target_time = datetime(year, month, day, tc_hour, tc_minute, tzinfo=timezone.utc)
+        except ValueError:
+            # Handles invalid dates like 31.2.2025
+            return None, None
+
+        now_utc = datetime.now(timezone.utc)
+        if target_time < now_utc:
+            # The specified date and time are in the past
+            return None, None
+
+        # Calculate the difference in seconds
+        time_diff = target_time - now_utc
+        return int(time_diff.total_seconds()), target_time
+
+    # Check for TC time format for today/tomorrow (e.g., 18:00TC or 12:30TC)
     tc_match = re.match(r'(\d{1,2}):(\d{2})tc', time_str.lower())
     if tc_match:
         tc_hour = int(tc_match.group(1))
@@ -336,7 +360,6 @@ def parse_time(time_str: str) -> Tuple[Optional[int], Optional[datetime]]:
         if not (0 <= tc_hour <= 23) or not (0 <= tc_minute <= 59):
             return None, None
         
-        # Convert TC time to target time
         # TC time is UTC, so we calculate the exact target time
         now_utc = datetime.now(timezone.utc)
         target_time = now_utc.replace(hour=tc_hour, minute=tc_minute, second=0, microsecond=0)
@@ -349,7 +372,7 @@ def parse_time(time_str: str) -> Tuple[Optional[int], Optional[datetime]]:
         time_diff = target_time - now_utc
         return int(time_diff.total_seconds()), target_time
     
-    # Check for regular time format (5h, 30m)
+    # Check for relative time format (5h, 30m)
     regular_match = re.match(r'(\d+)([hm])', time_str.lower())
     if regular_match:
         amount, unit = regular_match.groups()
@@ -361,7 +384,7 @@ def parse_time(time_str: str) -> Tuple[Optional[int], Optional[datetime]]:
         elif unit == 'm':
             seconds = amount * 60    # minutes to seconds
         
-        # For duration-based times, calculate target time
+        # For duration-based times, calculate target time from now
         target_time = datetime.now(timezone.utc) + timedelta(seconds=seconds)
         return seconds, target_time
     
@@ -662,7 +685,7 @@ async def manage_chain_lifecycle(channel_id: int):
         await save_active_chains()
 
 @bot.tree.command(name="chain", description="Organize a chain with a countdown timer")
-@app_commands.describe(time_str="Time until chain starts (e.g., '5h' for 5 hours, '30m' for 30 minutes, '18:00TC' for TC time)")
+@app_commands.describe(time_str="Time until chain starts (e.g., '5h', '30m', '18:00TC', or '18:00TC at 27.7.2025')")
 @app_commands.guild_only()
 async def chain(interaction: discord.Interaction, time_str: str):
     await interaction.response.defer()
@@ -684,7 +707,7 @@ async def chain(interaction: discord.Interaction, time_str: str):
     seconds, end_time_utc = parse_time(time_str)
     if seconds is None or end_time_utc is None:
         await interaction.followup.send(
-            "❌ Invalid time format! Use something like '5h' for 5 hours, '30m' for 30 minutes, or '18:00TC' for TC time.",
+            "❌ Invalid time format! Use '5h', '30m', '18:00TC', or '18:00TC at dd.mm.yyyy'.",
             ephemeral=True
         )
         return
