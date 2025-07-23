@@ -324,7 +324,7 @@ async def poll(interaction: discord.Interaction, question: str):
 
 def parse_time(time_str: str) -> Tuple[Optional[int], Optional[datetime]]:
     """
-    Convert time string like '5h', '30m', '18:00TC', or '18:00TC at 27.7.2025' to seconds and target UTC time
+    Convert time string like '5h', '30m', '18:00TC', or '18:00TC at dd.mm.yyyy' to seconds and target UTC time
     Returns (seconds_until_target, target_utc_datetime)
     """
     # Check for TC time with a specific date (e.g., 18:00TC at 27.7.2025)
