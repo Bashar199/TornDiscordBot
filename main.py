@@ -461,15 +461,58 @@ class ChainButton(Button):
         # Save the updated state
         await save_active_chains()
 
+class CancelButton(Button):
+    def __init__(self):
+        super().__init__(style=discord.ButtonStyle.secondary, label="Cancel Chain", custom_id="cancel_chain")
+
+    async def callback(self, interaction: discord.Interaction):
+        assert self.view is not None
+        view: ChainView = self.view
+        
+        organizer_id = view.chain_data['organizer_id']
+        admin_role = discord.utils.get(interaction.guild.roles, name="admin") or discord.utils.get(interaction.guild.roles, name="Admin")
+        
+        is_organizer = (interaction.user.id == organizer_id)
+        is_admin = (admin_role in interaction.user.roles) if isinstance(interaction.user, discord.Member) and admin_role else False
+
+        if not is_organizer and not is_admin:
+            await interaction.response.send_message("Only the organizer or an admin can cancel the chain.", ephemeral=True)
+            return
+
+        await interaction.response.defer()
+
+        view.disable_all_buttons()
+        
+        cancel_embed = discord.Embed(
+            title="❌ Chain Canceled",
+            description=f"This chain was canceled by {interaction.user.mention}.",
+            color=discord.Color.red()
+        )
+        cancel_embed.set_footer(text=f"Chain originally organized by {view.chain_data['organizer']}")
+        
+        if interaction.message:
+            await interaction.message.edit(embed=cancel_embed, view=view)
+        
+        channel_id = interaction.channel.id
+        if bot and channel_id in bot.active_chains:
+            del bot.active_chains[channel_id]
+            logger.info(f"Chain in channel {channel_id} removed from active_chains.")
+
+        if bot and channel_id in bot.chain_tasks:
+            if not bot.chain_tasks[channel_id].done():
+                bot.chain_tasks[channel_id].cancel()
+            del bot.chain_tasks[channel_id]
+            logger.info(f"Chain task for channel {channel_id} cancelled.")
+
+        await interaction.followup.send("Chain has been canceled.", ephemeral=True)
+
 class ChainView(View):
-    def __init__(self, bot_instance: ChainBot, chain_data: Dict):
+    def __init__(self, chain_data: Dict):
         super().__init__(timeout=None)
-        self.bot = bot_instance
         self.joiners: Set[Tuple[int, str]] = set()
         self.cant_make_it: Set[Tuple[int, str]] = set()
         self.chain_data = chain_data
         
-        # Add the buttons
         self.join_button = ChainButton(
             style=discord.ButtonStyle.success,
             label="I'll join!",
@@ -480,15 +523,16 @@ class ChainView(View):
             label="Can't make it",
             is_join=False
         )
+        self.cancel_button = CancelButton()
         
         self.add_item(self.join_button)
         self.add_item(self.skip_button)
+        self.add_item(self.cancel_button)
     
     def disable_all_buttons(self):
-        """Disable all buttons in the view"""
         self.join_button.disabled = True
         self.skip_button.disabled = True
-
+        self.cancel_button.disabled = True
 
 async def manage_chain_lifecycle(channel_id: int):
     """Manages the lifecycle of a chain countdown in the background."""
@@ -621,7 +665,6 @@ async def manage_chain_lifecycle(channel_id: int):
 @app_commands.describe(time_str="Time until chain starts (e.g., '5h' for 5 hours, '30m' for 30 minutes, '18:00TC' for TC time)")
 @app_commands.guild_only()
 async def chain(interaction: discord.Interaction, time_str: str):
-    # Defer the response immediately to prevent timeout
     await interaction.response.defer()
 
     if not isinstance(interaction.channel, (discord.TextChannel, discord.Thread)):
@@ -675,24 +718,29 @@ async def chain(interaction: discord.Interaction, time_str: str):
     embed.set_footer(text=f"Chain organized by {interaction.user.name}")
     
     chain_data = {
-        'organizer': interaction.user.name
+        'end_time': datetime.now() + timedelta(seconds=seconds),
+        'organizer': interaction.user.name,
+        'organizer_id': interaction.user.id
     }
     
-    view = ChainView(bot, chain_data)
+    view = ChainView(chain_data)
     await interaction.followup.send(embed=embed, view=view)
     chain_message = await interaction.original_response()
     
     bot.active_chains[interaction.channel.id] = {
         'message_id': chain_message.id,
+        'end_time': datetime.now() + timedelta(seconds=seconds),
         'end_time_utc': end_time_utc,
         'timestamp': timestamp,
         'organizer': interaction.user.name,
+        'organizer_id': interaction.user.id,
         'view': view
     }
     
-    await save_active_chains()
-    asyncio.create_task(manage_chain_lifecycle(interaction.channel.id))
-    logger.info(f"Chain started in channel {interaction.channel.id} by {interaction.user.name}")
+    bot.chain_tasks[interaction.channel.id] = bot.loop.create_task(
+        track_chain_progress(interaction.channel, initial_hits=0)
+    )
+    logger.info(f"Started chain tracking for channel {interaction.channel.id}")
 
 async def get_chain_leaderboard(faction_id: str = "53180") -> Optional[Dict]:
     """
