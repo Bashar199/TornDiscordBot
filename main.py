@@ -761,9 +761,9 @@ async def chain(interaction: discord.Interaction, time_str: str):
     }
     
     bot.chain_tasks[interaction.channel.id] = bot.loop.create_task(
-        track_chain_progress(interaction.channel, initial_hits=0)
+        manage_chain_lifecycle(interaction.channel.id)
     )
-    logger.info(f"Started chain tracking for channel {interaction.channel.id}")
+    logger.info(f"Started chain lifecycle management for channel {interaction.channel.id}")
 
 async def get_chain_leaderboard(faction_id: str = "53180") -> Optional[Dict]:
     """
