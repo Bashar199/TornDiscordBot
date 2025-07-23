@@ -600,7 +600,7 @@ async def manage_chain_lifecycle(channel_id: int):
                 logging.info(f"Chain in channel {channel_id} was cancelled. Stopping countdown.")
                 return
 
-            await asyncio.sleep(5)
+            await asyncio.sleep(25)
             
             remaining = (end_time_utc - datetime.now(timezone.utc)).total_seconds()
             if remaining < 0:
