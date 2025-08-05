@@ -1202,6 +1202,39 @@ async def set_war_channel(interaction: discord.Interaction, channel: discord.Tex
         ephemeral=True
     )
 
+@bot.tree.command(name="show-config", description="Display the current bot configuration.")
+@app_commands.guild_only()
+@app_commands.checks.has_permissions(administrator=True)
+async def show_config(interaction: discord.Interaction):
+    """Shows the current bot configuration."""
+    await interaction.response.defer(ephemeral=True)
+    
+    chain_channel_id = bot.config.get("chain_notification_channel_id")
+    war_channel_id = bot.config.get("war_notification_channel_id")
+    
+    chain_channel = bot.get_channel(chain_channel_id) if chain_channel_id else None
+    war_channel = bot.get_channel(war_channel_id) if war_channel_id else None
+    
+    embed = discord.Embed(
+        title="Bot Configuration",
+        description="Current notification channel settings.",
+        color=discord.Color.blue()
+    )
+    
+    embed.add_field(
+        name="Chain Notification Channel",
+        value=f"{chain_channel.mention if chain_channel else 'Not Set'}\nID: `{chain_channel_id}`",
+        inline=False
+    )
+    
+    embed.add_field(
+        name="War Notification Channel",
+        value=f"{war_channel.mention if war_channel else 'Not Set'}\nID: `{war_channel_id}`",
+        inline=False
+    )
+    
+    await interaction.followup.send(embed=embed, ephemeral=True)
+
 async def get_ranked_war_data(faction_id: str = "53180") -> Optional[Dict]:
     """Get ranked war data from Torn API."""
     try:
@@ -1226,7 +1259,7 @@ async def get_ranked_war_data(faction_id: str = "53180") -> Optional[Dict]:
         return None
 
 async def check_ranked_war_status_periodically(faction_id: str = "53180"):
-    """Periodically checks for active ranked wars and announces them."""
+    """Periodically checks for upcoming ranked wars and announces them."""
     logger.info(f"Starting ranked war monitoring for faction {faction_id}")
     logger.info(f"Current configuration: {bot.config}")
     
@@ -1234,109 +1267,88 @@ async def check_ranked_war_status_periodically(faction_id: str = "53180"):
         await asyncio.sleep(60)  # Check every 1 minute
         
         logger.info("=== Checking for ranked wars ===")
-        logger.info(f"Current announced war IDs: {bot.announced_war_ids}")
-        
         war_data = await get_ranked_war_data(faction_id)
         if not war_data:
-            logger.info("No war data returned from API")
-            continue
+            logger.info("No war data returned from API. This is normal if no wars are scheduled.")
+            pass
 
-        logger.info(f"Processing {len(war_data)} wars from API...")
-        active_war_found = False
+        logger.info(f"Processing {len(war_data)} wars from API. Current announced IDs: {bot.announced_war_ids}")
         
+        relevant_war_ids = set()
+
         for war_id, war in war_data.items():
-            logger.info(f"Processing war ID: {war_id}")
-            logger.info(f"War data structure: {json.dumps(war, indent=2)}")
-            
             war_details = war.get('war', {})
+            war_start_timestamp = war_details.get('start', 0)
             war_end_timestamp = war_details.get('end', 0)
             current_timestamp = datetime.now(timezone.utc).timestamp()
-            
-            logger.info(f"War end timestamp: {war_end_timestamp}")
-            logger.info(f"Current timestamp: {current_timestamp}")
-            logger.info(f"War is active: {war_end_timestamp > current_timestamp}")
-            
-            # Check if the war is active
+
+            logger.info(f"Processing War ID: {war_id} | Start: {datetime.fromtimestamp(war_start_timestamp, tz=timezone.utc)} | End: {datetime.fromtimestamp(war_end_timestamp, tz=timezone.utc)}")
+
+            # A war is relevant if it hasn't ended yet.
             if war_end_timestamp > current_timestamp:
-                active_war_found = True
-                logger.info(f"War {war_id} is active")
-                
-                # Check if it has not been announced yet
-                if war_id not in bot.announced_war_ids:
-                    logger.info(f"War {war_id} has not been announced yet. Proceeding with announcement...")
-                    
-                    channel_id = bot.config.get("war_notification_channel_id")
-                    logger.info(f"War notification channel ID from config: {channel_id}")
-                    
-                    if not channel_id:
-                        logger.warning(f"Ranked war {war_id} detected, but no notification channel is set. Skipping announcement.")
-                        continue
+                relevant_war_ids.add(war_id)
 
-                    channel = bot.get_channel(channel_id)
-                    logger.info(f"Found channel object: {channel}")
-                    
-                    if not channel:
-                        logger.error(f"Could not find war notification channel with ID {channel_id}.")
-                        continue
+                # Announce if it's an UPCOMING war that hasn't been announced yet.
+                if war_start_timestamp > current_timestamp:
+                    if war_id not in bot.announced_war_ids:
+                        logger.info(f"Found new UPCOMING war: {war_id}. Announcing...")
+                        
+                        channel_id = bot.config.get("war_notification_channel_id")
+                        if not channel_id:
+                            logger.warning(f"Upcoming war {war_id} detected, but no notification channel is set.")
+                            continue
 
-                    # Announce the war
-                    end_time_utc = datetime.fromtimestamp(war_end_timestamp, tz=timezone.utc)
-                    seconds_remaining = max(0, (end_time_utc - datetime.now(timezone.utc)).total_seconds())
+                        channel = bot.get_channel(channel_id)
+                        if not channel:
+                            logger.error(f"Could not find war notification channel with ID {channel_id}.")
+                            continue
 
-                    logger.info(f"Creating war announcement embed...")
-                    embed = discord.Embed(
-                        title="⚔️ New Ranked War! ⚔️",
-                        description="A new ranked war has started! Let's get ready for battle!",
-                        color=discord.Color.red()
-                    )
-                    embed.set_image(url="https://tenor.com/view/lets-go-charge-attack-battle-war-gif-21250118")
-                    
-                    # Correctly find the opponent's name
-                    factions = war.get('factions', {})
-                    logger.info(f"Factions data: {factions}")
-                    
-                    enemy_faction_name = "Unknown Faction"
-                    for f_id, f_details in factions.items():
-                        logger.info(f"Checking faction ID: {f_id} vs our faction: {faction_id}")
-                        if f_id != faction_id:
-                            enemy_faction_name = f_details.get('name', 'Unknown Faction')
-                            logger.info(f"Found enemy faction: {enemy_faction_name}")
-                            break
-                    
-                    embed.add_field(name="Opponent", value=enemy_faction_name, inline=False)
+                        start_time_utc = datetime.fromtimestamp(war_start_timestamp, tz=timezone.utc)
+                        seconds_until_start = max(0, (start_time_utc - datetime.now(timezone.utc)).total_seconds())
 
-                    embed.add_field(
-                        name="War Ends In",
-                        value=f"Countdown: {format_time_remaining(int(seconds_remaining))}\n" +
-                              f"End Time: <t:{int(end_time_utc.timestamp())}:F>",
-                        inline=False
-                    )
-                    
-                    chain_data = {'organizer': 'Auto-Announced'}
-                    view = ChainView(bot, chain_data)
+                        embed = discord.Embed(
+                            title="⚔️ Upcoming Ranked War! ⚔️",
+                            description="A new ranked war is on the horizon! Prepare for battle!",
+                            color=discord.Color.orange()
+                        )
+                        embed.set_image(url="https://tenor.com/view/lets-go-charge-attack-battle-war-gif-21250118")
+                        
+                        factions = war.get('factions', {})
+                        enemy_faction_name = "Unknown Faction"
+                        for f_id, f_details in factions.items():
+                            if f_id != faction_id:
+                                enemy_faction_name = f_details.get('name', 'Unknown Faction')
+                                break
+                        
+                        embed.add_field(name="Opponent", value=enemy_faction_name, inline=False)
+                        embed.add_field(
+                            name="War Starts In",
+                            value=f"Countdown: {format_time_remaining(int(seconds_until_start))}\n" +
+                                  f"Start Time: <t:{int(start_time_utc.timestamp())}:F>",
+                            inline=False
+                        )
+                        
+                        chain_data = {'organizer': 'Auto-Announced'}
+                        view = ChainView(bot, chain_data)
 
-                    try:
-                        logger.info(f"Sending war announcement to channel {channel_id}...")
-                        await channel.send(embed=embed, view=view)
-                        bot.announced_war_ids.add(war_id)
-                        logger.info(f"Successfully announced ranked war {war_id} in channel {channel_id}.")
-                    except discord.Forbidden:
-                        logger.error(f"Missing permissions to send war announcement in channel {channel_id}.")
-                    except Exception as e:
-                        logger.error(f"Failed to send war announcement for war {war_id}: {e}")
+                        try:
+                            await channel.send(embed=embed, view=view)
+                            bot.announced_war_ids.add(war_id)
+                            logger.info(f"Successfully announced upcoming war {war_id} in channel {channel_id}.")
+                        except Exception as e:
+                            logger.error(f"Failed to send war announcement for war {war_id}: {e}", exc_info=True)
+                    else:
+                        logger.info(f"Upcoming war {war_id} has already been announced.")
                 else:
-                    logger.info(f"War {war_id} has already been announced")
+                    logger.info(f"War {war_id} is already active, not announcing as 'upcoming'.")
             else:
-                logger.info(f"War {war_id} is not active (ended)")
+                logger.info(f"War {war_id} has already ended.")
 
-        if not active_war_found:
-            logger.info("No active wars found this check")
-            # If no wars are active, clear the announced set
-            if bot.announced_war_ids:
-                logger.info("Clearing the set of announced war IDs.")
-                bot.announced_war_ids.clear()
-        else:
-            logger.info(f"Found {len([w for w in war_data.values() if w.get('war', {}).get('end', 0) > datetime.now(timezone.utc).timestamp()])} active wars")
+        # Clean up announced_war_ids for wars that are no longer relevant.
+        obsolete_ids = bot.announced_war_ids - relevant_war_ids
+        if obsolete_ids:
+            logger.info(f"Clearing obsolete war IDs from announced set: {obsolete_ids}")
+            bot.announced_war_ids -= obsolete_ids
 
 
 
