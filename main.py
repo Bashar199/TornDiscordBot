@@ -53,9 +53,36 @@ class ChainBot(commands.Bot):
         # Store active chains and their timers
         self.active_chains = {}
         self.persistent_views_loaded = False
+        self.config = {}
+        self.chain_checker_started = False
         logger.info("ChainBot initialized")
 
 bot = ChainBot()
+
+CONFIG_FILE = "config.json"
+
+async def load_config():
+    """Loads configuration from a JSON file."""
+    try:
+        with open(CONFIG_FILE, 'r') as f:
+            bot.config = json.load(f)
+            logger.info("Configuration loaded from config.json.")
+    except FileNotFoundError:
+        logger.info("config.json not found, starting with default configuration.")
+        bot.config = {"chain_notification_channel_id": None}
+    except json.JSONDecodeError:
+        logger.error("Could not decode config.json. Starting with default configuration.")
+        bot.config = {"chain_notification_channel_id": None}
+
+async def save_config():
+    """Saves the current configuration to a JSON file."""
+    try:
+        with open(CONFIG_FILE, 'w') as f:
+            json.dump(bot.config, f, indent=4)
+        logger.info("Configuration saved to config.json.")
+    except Exception as e:
+        logger.error(f"Failed to save configuration: {e}")
+
 
 async def save_active_chains():
     """Saves the current state of active chains to a JSON file."""
@@ -130,9 +157,15 @@ async def load_and_resume_chains():
 @bot.event
 async def on_ready():
     logger.info(f"Logged in as {bot.user}")
+    await load_config()  # Load configuration
     if not bot.persistent_views_loaded:
         await load_and_resume_chains()
         bot.persistent_views_loaded = True
+    
+    if not bot.chain_checker_started:
+        asyncio.create_task(check_chain_status_periodically())
+        bot.chain_checker_started = True
+        
     try:
         synced = await bot.tree.sync()
         logger.info(f"Synced {len(synced)} command(s)")
@@ -758,7 +791,7 @@ async def chain(interaction: discord.Interaction, time_str: str):
     
     embed.add_field(
         name="Chain Start Time",
-        value=f"Countdown: {format_time_remaining(seconds)}\n" +
+        value=f"@everyone\nCountdown: {format_time_remaining(seconds)}\n" +
               f"Date: {time_str}\n" +
               f"Time: {end_time_utc.strftime('%H:%M')} TC\n" +
               f"Your local time: <t:{timestamp}:F>",
@@ -1085,6 +1118,63 @@ async def chainboard(interaction: discord.Interaction):
         embed.description = "⚠️ No active chain found."
     
     await interaction.followup.send(embed=embed)
+
+@bot.tree.command(name="set-chain-channel", description="Set the channel for chain notifications")
+@app_commands.guild_only()
+@app_commands.checks.has_permissions(administrator=True)
+async def set_chain_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+    """Sets the channel for sending chain notifications."""
+    bot.config["chain_notification_channel_id"] = channel.id
+    await save_config()
+    await interaction.response.send_message(
+        f"✅ Chain notifications will now be sent to {channel.mention}.",
+        ephemeral=True
+    )
+
+async def check_chain_status_periodically(faction_id: str = "53180"):
+    """Periodically checks for an active chain and sends a notification if one starts."""
+    notification_sent_for_current_chain = False
+    
+    while True:
+        await asyncio.sleep(600)  # Check every 10 minutes
+        
+        chain_data = await get_chain_leaderboard(faction_id)
+        if not chain_data:
+            continue
+            
+        is_active = chain_data.get("current", 0) > 0
+        
+        if is_active and not notification_sent_for_current_chain:
+            channel_id = bot.config.get("chain_notification_channel_id")
+            if not channel_id:
+                logger.warning("Chain detected, but no notification channel is set.")
+                continue
+                
+            channel = bot.get_channel(channel_id)
+            if not channel:
+                logger.error(f"Could not find notification channel with ID {channel_id}.")
+                continue
+            
+            embed = discord.Embed(
+                title="🚨 Chain Started!",
+                description="A faction chain has started! Time to attack!",
+                color=discord.Color.green(),
+                timestamp=datetime.now(timezone.utc)
+            )
+            embed.set_footer(text="Powered by your friendly bot")
+            
+            try:
+                await channel.send(embed=embed)
+                notification_sent_for_current_chain = True
+                logger.info(f"Sent chain start notification to channel {channel_id}.")
+            except discord.Forbidden:
+                logger.error(f"Missing permissions to send message in channel {channel_id}.")
+            except Exception as e:
+                logger.error(f"Failed to send chain notification: {e}")
+                
+        elif not is_active:
+            notification_sent_for_current_chain = False
+
 
 
 bot.run(token, log_level=logging.INFO)
