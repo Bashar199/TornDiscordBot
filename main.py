@@ -55,6 +55,8 @@ class ChainBot(commands.Bot):
         self.persistent_views_loaded = False
         self.config = {}
         self.chain_checker_started = False
+        self.war_checker_started = False
+        self.announced_war_ids = set()
         logger.info("ChainBot initialized")
 
 bot = ChainBot()
@@ -66,13 +68,22 @@ async def load_config():
     try:
         with open(CONFIG_FILE, 'r') as f:
             bot.config = json.load(f)
+            # Ensure new keys are present
+            bot.config.setdefault("chain_notification_channel_id", None)
+            bot.config.setdefault("war_notification_channel_id", None)
             logger.info("Configuration loaded from config.json.")
     except FileNotFoundError:
         logger.info("config.json not found, starting with default configuration.")
-        bot.config = {"chain_notification_channel_id": None}
+        bot.config = {
+            "chain_notification_channel_id": None,
+            "war_notification_channel_id": None
+        }
     except json.JSONDecodeError:
         logger.error("Could not decode config.json. Starting with default configuration.")
-        bot.config = {"chain_notification_channel_id": None}
+        bot.config = {
+            "chain_notification_channel_id": None,
+            "war_notification_channel_id": None
+        }
 
 async def save_config():
     """Saves the current configuration to a JSON file."""
@@ -165,6 +176,10 @@ async def on_ready():
     if not bot.chain_checker_started:
         asyncio.create_task(check_chain_status_periodically())
         bot.chain_checker_started = True
+        
+    if not bot.war_checker_started:
+        asyncio.create_task(check_ranked_war_status_periodically())
+        bot.war_checker_started = True
         
     try:
         synced = await bot.tree.sync()
@@ -1174,6 +1189,94 @@ async def check_chain_status_periodically(faction_id: str = "53180"):
                 
         elif not is_active:
             notification_sent_for_current_chain = False
+            
+@bot.tree.command(name="set-war-channel", description="Set the channel for ranked war notifications")
+@app_commands.guild_only()
+@app_commands.checks.has_permissions(administrator=True)
+async def set_war_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+    """Sets the channel for sending ranked war notifications."""
+    bot.config["war_notification_channel_id"] = channel.id
+    await save_config()
+    await interaction.response.send_message(
+        f"✅ Ranked war notifications will now be sent to {channel.mention}.",
+        ephemeral=True
+    )
+
+async def get_ranked_war_data(faction_id: str = "53180") -> Optional[Dict]:
+    """Get ranked war data from Torn API."""
+    try:
+        async with aiohttp.ClientSession() as session:
+            url = f"https://api.torn.com/faction/{faction_id}?selections=rankedwars&key={torn_api_key}"
+            async with session.get(url) as response:
+                if response.status != 200:
+                    logger.error(f"Ranked war API request failed with status {response.status}")
+                    return None
+                data = await response.json()
+                if 'error' in data:
+                    logger.error(f"Ranked war API Error: {data['error']['error']}")
+                    return None
+                return data.get("rankedwars", {})
+    except Exception as e:
+        logger.error(f"Ranked war data error: {e}")
+        return None
+
+async def check_ranked_war_status_periodically(faction_id: str = "53180"):
+    """Periodically checks for active ranked wars and announces them."""
+    while True:
+        await asyncio.sleep(600)  # Check every 10 minutes
+        
+        war_data = await get_ranked_war_data(faction_id)
+        if not war_data:
+            continue
+
+        for war_id, war in war_data.items():
+            # Check if the war is active and has not been announced yet
+            if war['war']['end'] > datetime.now(timezone.utc).timestamp() and war_id not in bot.announced_war_ids:
+                channel_id = bot.config.get("war_notification_channel_id")
+                if not channel_id:
+                    logger.warning("Ranked war detected, but no notification channel is set.")
+                    continue
+
+                channel = bot.get_channel(channel_id)
+                if not channel:
+                    logger.error(f"Could not find war notification channel with ID {channel_id}.")
+                    continue
+
+                # Announce the war
+                end_time_utc = datetime.fromtimestamp(war['war']['end'], tz=timezone.utc)
+                seconds_remaining = (end_time_utc - datetime.now(timezone.utc)).total_seconds()
+
+                embed = discord.Embed(
+                    title="⚔️ New Ranked War! ⚔️",
+                    description="A new ranked war has started! Let's get ready for battle!",
+                    color=discord.Color.red()
+                )
+                embed.set_image(url="https://tenor.com/view/lets-go-charge-attack-battle-war-gif-21250118")
+                
+                # Add war details
+                factions = war.get('factions', {})
+                enemy_faction = next(iter(factions.values()), {}).get('name', 'Unknown Faction')
+                embed.add_field(name="Opponent", value=enemy_faction, inline=False)
+
+                embed.add_field(
+                    name="War Ends In",
+                    value=f"Countdown: {format_time_remaining(int(seconds_remaining))}\n" +
+                          f"End Time: <t:{int(end_time_utc.timestamp())}:F>",
+                    inline=False
+                )
+                
+                chain_data = {'organizer': 'Auto-Announced'}
+                view = ChainView(bot, chain_data)
+
+                try:
+                    await channel.send(embed=embed, view=view)
+                    bot.announced_war_ids.add(war_id)
+                    logger.info(f"Announced ranked war {war_id} in channel {channel_id}.")
+                except discord.Forbidden:
+                    logger.error(f"Missing permissions to send war announcement in channel {channel_id}.")
+                except Exception as e:
+                    logger.error(f"Failed to send war announcement: {e}")
+
 
 
 
