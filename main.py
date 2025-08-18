@@ -847,103 +847,7 @@ async def chain(interaction: discord.Interaction, time_str: str):
     asyncio.create_task(manage_chain_lifecycle(interaction.channel.id))
     logger.info(f"Chain started in channel {interaction.channel.id} by {interaction.user.name}")
 
-@bot.tree.command(name="warstart", description="Organize a war chain with a countdown timer")
-@app_commands.describe(
-    time_str="Time until chain starts: '5h', '30m', '18:00TC', or '18:00TC at DD.MM.YYYY' (e.g., '18:00TC at 25.12.2024')"
-)
-@app_commands.guild_only()
-async def warstart(interaction: discord.Interaction, time_str: str):
-    # Defer the response immediately to prevent timeout
-    await interaction.response.defer()
-
-    if not isinstance(interaction.channel, (discord.TextChannel, discord.Thread)):
-        await interaction.followup.send(
-            "War chains can only be created in text channels or threads!",
-            ephemeral=True
-        )
-        return
-    
-    if interaction.channel.id in bot.active_chains:
-        await interaction.followup.send(
-            "⚠️ There's already an active chain planned in this channel!",
-            ephemeral=True
-        )
-        return
-    
-    seconds, end_time_utc = parse_time(time_str)
-    if seconds is None or end_time_utc is None:
-        await interaction.followup.send(
-            "❌ Invalid time format! Use one of these formats:\n" +
-            "• '5h' for 5 hours\n" +
-            "• '30m' for 30 minutes\n" +
-            "• '18:00TC' for TC time today/tomorrow\n" +
-            "• '18:00TC at 25.12.2024' for a specific date",
-            ephemeral=True
-        )
-        return
-    
-    timestamp = int(end_time_utc.timestamp())
-    
-    embed = discord.Embed(
-        title="⚔️ Upcoming War Chain ⚔️",
-        description="A new war chain is being organized! Click the buttons below to indicate your participation:",
-        color=discord.Color.red()
-    )
-    
-    # Add the war GIF
-    embed.set_image(url="https://tenor.com/view/lets-go-charge-attack-battle-war-gif-21250118")
-    
-    # Format the chain start time field differently based on whether it's today/tomorrow or a future date
-    now_utc = datetime.now(timezone.utc)
-    if end_time_utc.date() == now_utc.date():
-        time_str = "Today"
-    elif end_time_utc.date() == (now_utc + timedelta(days=1)).date():
-        time_str = "Tomorrow"
-    else:
-        time_str = end_time_utc.strftime("%d.%m.%Y")
-    
-    embed.add_field(
-        name="War Chain Start Time",
-        value=f"Countdown: {format_time_remaining(seconds)}\n" +
-              f"Date: {time_str}\n" +
-              f"Time: {end_time_utc.strftime('%H:%M')} TC\n" +
-              f"Your local time: <t:{timestamp}:F>",
-        inline=False
-    )
-    
-    embed.add_field(
-        name="Warriors Ready",
-        value="*No warriors have joined yet*",
-        inline=False
-    )
-    
-    embed.add_field(
-        name="Options",
-        value="🟢 = Ready for battle!\n🔴 = Can't make it",
-        inline=False
-    )
-    
-    embed.set_footer(text=f"War chain organized by {interaction.user.name}")
-    
-    chain_data = {
-        'organizer': interaction.user.name
-    }
-    
-    view = ChainView(bot, chain_data)
-    await interaction.followup.send(embed=embed, view=view)
-    chain_message = await interaction.original_response()
-    
-    bot.active_chains[interaction.channel.id] = {
-        'message_id': chain_message.id,
-        'end_time_utc': end_time_utc,
-        'timestamp': timestamp,
-        'organizer': interaction.user.name,
-        'view': view
-    }
-    
-    await save_active_chains()
-    asyncio.create_task(manage_chain_lifecycle(interaction.channel.id))
-    logger.info(f"War chain started in channel {interaction.channel.id} by {interaction.user.name}")
+ 
 
 async def get_chain_leaderboard(faction_id: str = "53180") -> Optional[Dict]:
     """
@@ -1134,17 +1038,7 @@ async def chainboard(interaction: discord.Interaction):
     
     await interaction.followup.send(embed=embed)
 
-@bot.tree.command(name="set-chain-channel", description="Set the channel for chain notifications")
-@app_commands.guild_only()
-@app_commands.checks.has_permissions(administrator=True)
-async def set_chain_channel(interaction: discord.Interaction, channel: discord.TextChannel):
-    """Sets the channel for sending chain notifications."""
-    bot.config["chain_notification_channel_id"] = channel.id
-    await save_config()
-    await interaction.response.send_message(
-        f"✅ Chain notifications will now be sent to {channel.mention}.",
-        ephemeral=True
-    )
+ 
 
 async def check_chain_status_periodically(faction_id: str = "53180"):
     """Periodically checks for an active chain and sends a notification if one starts."""
