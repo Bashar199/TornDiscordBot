@@ -734,9 +734,9 @@ async def manage_chain_lifecycle(channel_id: int):
             mentions_text = " ".join(mentions)
             if is_war_chain:
                 await channel.send("https://tenor.com/view/lets-go-charge-attack-battle-war-gif-21250118")
-                await channel.send(f"⚔️ War chain is starting! {mentions_text}")
+                await channel.send(f"⚔️ @everyone War chain is starting! {mentions_text}")
             else:
-                await channel.send(f"🔔 Chain is starting! {mentions_text}")
+                await channel.send(f"🔔 @everyone Chain is starting! {mentions_text}")
         
         view.disable_all_buttons()
         await chain_message.edit(embed=final_embed, view=view)
