@@ -55,8 +55,7 @@ class ChainBot(commands.Bot):
         self.persistent_views_loaded = False
         self.config = {}
         self.chain_checker_started = False
-        self.war_checker_started = False
-        self.announced_war_ids = set()
+        self.faction_role_sync_started = False
         logger.info("ChainBot initialized")
 
 bot = ChainBot()
@@ -70,19 +69,16 @@ async def load_config():
             bot.config = json.load(f)
             # Ensure new keys are present
             bot.config.setdefault("chain_notification_channel_id", None)
-            bot.config.setdefault("war_notification_channel_id", None)
             logger.info("Configuration loaded from config.json.")
     except FileNotFoundError:
         logger.info("config.json not found, starting with default configuration.")
         bot.config = {
-            "chain_notification_channel_id": None,
-            "war_notification_channel_id": None
+            "chain_notification_channel_id": None
         }
     except json.JSONDecodeError:
         logger.error("Could not decode config.json. Starting with default configuration.")
         bot.config = {
-            "chain_notification_channel_id": None,
-            "war_notification_channel_id": None
+            "chain_notification_channel_id": None
         }
 
 async def save_config():
@@ -177,9 +173,9 @@ async def on_ready():
         asyncio.create_task(check_chain_status_periodically())
         bot.chain_checker_started = True
         
-    if not bot.war_checker_started:
-        asyncio.create_task(check_ranked_war_status_periodically())
-        bot.war_checker_started = True
+    if not bot.faction_role_sync_started:
+        asyncio.create_task(sync_faction_roles_periodically())
+        bot.faction_role_sync_started = True
         
     try:
         synced = await bot.tree.sync()
@@ -222,10 +218,23 @@ async def setnick(interaction: discord.Interaction, name: str, user_id: str):
     # Defer the response since API validation might take some time
     await interaction.response.defer(ephemeral=False)
 
-    # Validate that the name and ID exist in faction 53180
-    is_valid, error_message = await validate_faction_member(name, user_id)
-    if not is_valid:
+    faction_id, error_message = await validate_and_get_faction(name, user_id)
+    
+    if error_message:
         await interaction.followup.send(error_message, ephemeral=False)
+        return
+
+    # Faction validation
+    allowed_factions = {
+        53180: "faction -I-",
+        55332: "faction -II-"
+    }
+    
+    if faction_id not in allowed_factions:
+        await interaction.followup.send(
+            f"❌ You must be a member of 'faction -I-' or 'faction -II-' to set your nickname here.",
+            ephemeral=False
+        )
         return
 
     # Get the member object
@@ -271,7 +280,9 @@ async def setnick(interaction: discord.Interaction, name: str, user_id: str):
         # Change the nickname
         await member.edit(nick=new_nickname)
         
-        # Give the Soldier role if they don't have it
+        # --- Role Assignment ---
+        
+        # 1. Soldier Role
         soldier_role = discord.utils.get(interaction.guild.roles, name="💂‍♀️Soldier💂‍♀️")
         role_message = ""
         
@@ -289,9 +300,37 @@ async def setnick(interaction: discord.Interaction, name: str, user_id: str):
                 role_message = f" (you already have the {soldier_role.mention} role)"
         else:
             role_message = " (💂‍♀️Soldier💂‍♀️ role not found on this server)"
+
+        # 2. Faction Roles
+        faction_role_message = ""
+        target_role_name = allowed_factions[faction_id]
+        role_i = discord.utils.get(interaction.guild.roles, name="faction -I-")
+        role_ii = discord.utils.get(interaction.guild.roles, name="faction -II-")
         
+        roles_to_add = []
+        roles_to_remove = []
+
+        if target_role_name == "faction -I-":
+            if role_i and role_i not in member.roles: roles_to_add.append(role_i)
+            if role_ii and role_ii in member.roles: roles_to_remove.append(role_ii)
+        elif target_role_name == "faction -II-":
+            if role_ii and role_ii not in member.roles: roles_to_add.append(role_ii)
+            if role_i and role_i in member.roles: roles_to_remove.append(role_i)
+
+        try:
+            if roles_to_add:
+                await member.add_roles(*roles_to_add, reason="/setnick command")
+                faction_role_message += f" and the {roles_to_add[0].mention} role"
+            if roles_to_remove:
+                await member.remove_roles(*roles_to_remove, reason="/setnick command")
+        except discord.Forbidden:
+            faction_role_message += f" (couldn't update faction roles - insufficient permissions)"
+        except Exception as e:
+            logging.error(f"Faction role assignment error in /setnick: {e}")
+            faction_role_message += f" (error updating faction roles)"
+
         await interaction.followup.send(
-            f"✅ Your nickname has been set to: {new_nickname}{role_message}",
+            f"✅ Your nickname has been set to: {new_nickname}{role_message}{faction_role_message}.",
             ephemeral=False
         )
     except discord.Forbidden:
@@ -454,47 +493,40 @@ def format_time_remaining(seconds: int) -> str:
     else:
         return f"{minutes}m {seconds}s"
 
-async def validate_faction_member(name: str, user_id: str) -> Tuple[bool, str]:
+async def validate_and_get_faction(name: str, user_id: str) -> Tuple[Optional[int], str]:
     """
-    Validate if a user with given name and ID exists in faction 53180
-    Returns (is_valid, error_message)
+    Validates a Torn user's name and ID, and returns their faction ID.
+    Returns (faction_id, error_message)
     """
     try:
         async with aiohttp.ClientSession() as session:
-            # Get faction members from Torn API
-            url = f"https://api.torn.com/faction/53180?selections=basic&key={torn_api_key}"
+            url = f"https://api.torn.com/user/{user_id}?selections=profile&key={torn_api_key}"
             async with session.get(url) as response:
                 if response.status != 200:
-                    return False, "❌ Failed to connect to Torn API. Please try again later."
+                    return None, "❌ Failed to connect to Torn API. Please try again later."
                 
                 data = await response.json()
                 
                 if 'error' in data:
-                    return False, f"❌ API Error: {data['error']['error']}"
+                    if data['error']['code'] == 2: # "User not found"
+                         return None, f"❌ User ID {user_id} not found in Torn."
+                    return None, f"❌ API Error: {data['error']['error']}"
                 
-                members = data.get('members', {})
+                # Validate name
+                api_name = data.get('name', '').lower()
+                if api_name != name.lower():
+                    actual_name = data.get('name', 'Unknown')
+                    return None, f"❌ Name mismatch! User ID {user_id} belongs to '{actual_name}', not '{name}'."
+
+                # Get faction ID
+                faction_info = data.get('faction', {})
+                faction_id = faction_info.get('faction_id')
                 
-                # Check if user_id exists in faction
-                if user_id not in members:
-                    return False, f"❌ User ID {user_id} is not found in faction ."
+                return int(faction_id) if faction_id and faction_id != 0 else None, ""
                 
-                # Check if the name matches
-                member_data = members[user_id]
-                member_name = member_data.get('name', '').lower()
-                
-                if member_name != name.lower():
-                    actual_name = member_data.get('name', 'Unknown')
-                    return False, f"❌ Name mismatch! User ID {user_id} belongs to '{actual_name}', not '{name}'."
-                
-                return True, ""
-                
-    except aiohttp.ClientError:
-        return False, "❌ Network error while connecting to Torn API. Please try again later."
-    except json.JSONDecodeError:
-        return False, "❌ Invalid response from Torn API. Please try again later."
     except Exception as e:
-        logging.error(f"Faction validation error: {e}")
-        return False, "❌ An unexpected error occurred during validation."
+        logging.error(f"Error during user validation for {user_id}: {e}")
+        return None, "❌ An unexpected error occurred during validation."
 
 def check_duplicate_nickname(guild: discord.Guild, new_nickname: str, current_user_id: int) -> Tuple[bool, Optional[discord.Member]]:
     """
@@ -515,6 +547,32 @@ def check_duplicate_nickname(guild: discord.Guild, new_nickname: str, current_us
             return True, member
     
     return False, None
+
+async def get_user_faction(user_id: str) -> Optional[int]:
+    """Gets the faction ID for a given Torn user ID."""
+    try:
+        async with aiohttp.ClientSession() as session:
+            url = f"https://api.torn.com/user/{user_id}?selections=profile&key={torn_api_key}"
+            async with session.get(url) as response:
+                if response.status != 200:
+                    logger.error(f"Failed to get user data for {user_id}. Status: {response.status}")
+                    return None
+                
+                data = await response.json()
+                
+                if 'error' in data:
+                    # Don't log "User not found" as an error, it's expected for old IDs
+                    if data['error']['code'] != 2:
+                         logger.error(f"Torn API error for user {user_id}: {data['error']['error']}")
+                    return None
+                
+                faction_info = data.get('faction', {})
+                faction_id = faction_info.get('faction_id')
+                return int(faction_id) if faction_id and faction_id != 0 else None
+                
+    except Exception as e:
+        logger.error(f"Error getting user faction for {user_id}: {e}")
+        return None
 
 class ChainButton(Button):
     def __init__(self, style: discord.ButtonStyle, label: str, is_join: bool):
@@ -639,9 +697,6 @@ async def manage_chain_lifecycle(channel_id: int):
     timestamp = chain_info['timestamp']
     organizer_name = chain_info['organizer']
     
-    # Check if this is a war chain by looking at the original message's embed
-    is_war_chain = "⚔️" in chain_message.embeds[0].title if chain_message.embeds else False
-    
     try:
         while datetime.now(timezone.utc) < end_time_utc:
             if channel_id not in bot.active_chains:
@@ -655,13 +710,10 @@ async def manage_chain_lifecycle(channel_id: int):
                 remaining = 0
             
             embed = discord.Embed(
-                title="⚔️ Upcoming War Chain ⚔️" if is_war_chain else "🔄 Upcoming Chain",
-                description="A new war chain is being organized! Click the buttons below to indicate your participation:" if is_war_chain else "A new chain is being organized! Click the buttons below to indicate your participation:",
-                color=discord.Color.red() if is_war_chain else discord.Color.gold()
+                title="🔄 Upcoming Chain",
+                description="A new chain is being organized! Click the buttons below to indicate your participation:",
+                color=discord.Color.gold()
             )
-            
-            if is_war_chain:
-                embed.set_image(url="https://gifdb.com/images/high/theres-a-war-coming-text-7mhdnfq5009q4jg1.webp")
             
             # Format the chain start time field differently based on whether it's today/tomorrow or a future date
             now_utc = datetime.now(timezone.utc)
@@ -673,7 +725,7 @@ async def manage_chain_lifecycle(channel_id: int):
                 time_str = end_time_utc.strftime("%d.%m.%Y")
             
             embed.add_field(
-                name=f"{'War Chain' if is_war_chain else 'Chain'} Start Time",
+                name="Chain Start Time",
                 value=f"Countdown: {format_time_remaining(int(remaining))}\n" +
                       f"Date: {time_str}\n" +
                       f"Time: {end_time_utc.strftime('%H:%M')} TC\n" +
@@ -683,7 +735,7 @@ async def manage_chain_lifecycle(channel_id: int):
             
             joiners_text = "\n".join([f"• {name}" for _, name in view.joiners]) if view.joiners else "*No participants yet*"
             embed.add_field(
-                name=f"{'Warriors Ready' if is_war_chain else 'Participants'} ({len(view.joiners)})",
+                name=f"Participants ({len(view.joiners)})",
                 value=joiners_text,
                 inline=False
             )
@@ -697,11 +749,11 @@ async def manage_chain_lifecycle(channel_id: int):
             
             embed.add_field(
                 name="Options",
-                value="🟢 = Ready for battle!\n🔴 = Can't make it" if is_war_chain else "🟢 = I'll join the chain!\n🔴 = Can't make it",
+                value="🟢 = I'll join the chain!\n🔴 = Can't make it",
                 inline=False
             )
             
-            embed.set_footer(text=f"{'War chain' if is_war_chain else 'Chain'} organized by {organizer_name}")
+            embed.set_footer(text=f"Chain organized by {organizer_name}")
             
             try:
                 await chain_message.edit(embed=embed, view=view)
@@ -717,14 +769,14 @@ async def manage_chain_lifecycle(channel_id: int):
              return
 
         final_embed = discord.Embed(
-            title="⚔️ War Chain Starting! ⚔️" if is_war_chain else "🎯 Chain Starting!",
-            description="Time's up! The war chain is starting now!" if is_war_chain else "Time's up! The chain is starting now!",
-            color=discord.Color.red() if is_war_chain else discord.Color.green()
+            title="🎯 Chain Starting!",
+            description="Time's up! The chain is starting now!",
+            color=discord.Color.green()
         )
         
         joiners_text = "\n".join([f"• {name}" for _, name in view.joiners]) if view.joiners else "*No participants*"
         final_embed.add_field(
-            name=f"Final {'Warriors' if is_war_chain else 'Participants'} ({len(view.joiners)})",
+            name=f"Final Participants ({len(view.joiners)})",
             value=joiners_text,
             inline=False
         )
@@ -732,11 +784,7 @@ async def manage_chain_lifecycle(channel_id: int):
         if view.joiners:
             mentions = [f"<@{user_id}>" for user_id, _ in view.joiners]
             mentions_text = " ".join(mentions)
-            if is_war_chain:
-                await channel.send("https://tenor.com/view/lets-go-charge-attack-battle-war-gif-21250118")
-                await channel.send(f"⚔️ @everyone War chain is starting! {mentions_text}")
-            else:
-                await channel.send(f"🔔 @everyone Chain is starting! {mentions_text}")
+            await channel.send(f"🔔 @everyone Chain is starting! {mentions_text}")
         
         view.disable_all_buttons()
         await chain_message.edit(embed=final_embed, view=view)
@@ -806,7 +854,7 @@ async def chain(interaction: discord.Interaction, time_str: str):
     
     embed.add_field(
         name="Chain Start Time",
-        value=f"@everyone\nCountdown: {format_time_remaining(seconds)}\n" +
+        value=f"Countdown: {format_time_remaining(seconds)}\n" +
               f"Date: {time_str}\n" +
               f"Time: {end_time_utc.strftime('%H:%M')} TC\n" +
               f"Your local time: <t:{timestamp}:F>",
@@ -1084,18 +1132,6 @@ async def check_chain_status_periodically(faction_id: str = "53180"):
         elif not is_active:
             notification_sent_for_current_chain = False
             
-@bot.tree.command(name="set-war-channel", description="Set the channel for ranked war notifications")
-@app_commands.guild_only()
-@app_commands.checks.has_permissions(administrator=True)
-async def set_war_channel(interaction: discord.Interaction, channel: discord.TextChannel):
-    """Sets the channel for sending ranked war notifications."""
-    bot.config["war_notification_channel_id"] = channel.id
-    await save_config()
-    await interaction.response.send_message(
-        f"✅ Ranked war notifications will now be sent to {channel.mention}.",
-        ephemeral=True
-    )
-
 @bot.tree.command(name="show-config", description="Display the current bot configuration.")
 @app_commands.guild_only()
 @app_commands.checks.has_permissions(administrator=True)
@@ -1104,10 +1140,8 @@ async def show_config(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
     
     chain_channel_id = bot.config.get("chain_notification_channel_id")
-    war_channel_id = bot.config.get("war_notification_channel_id")
     
     chain_channel = bot.get_channel(chain_channel_id) if chain_channel_id else None
-    war_channel = bot.get_channel(war_channel_id) if war_channel_id else None
     
     embed = discord.Embed(
         title="Bot Configuration",
@@ -1121,13 +1155,92 @@ async def show_config(interaction: discord.Interaction):
         inline=False
     )
     
-    embed.add_field(
-        name="War Notification Channel",
-        value=f"{war_channel.mention if war_channel else 'Not Set'}\nID: `{war_channel_id}`",
-        inline=False
-    )
-    
     await interaction.followup.send(embed=embed, ephemeral=True)
+
+async def sync_faction_roles_periodically():
+    """
+    Periodically synchronizes faction roles for all members in all servers the bot is in.
+    Runs every 30 minutes.
+    """
+    await bot.wait_until_ready()
+    while not bot.is_closed():
+        logger.info("Starting periodic faction role synchronization...")
+        
+        faction_map = {
+            53180: "faction -I-",
+            55332: "faction -II-"
+        }
+        
+        id_pattern = re.compile(r'\[(\d+)\]$')
+
+        for guild in bot.guilds:
+            logger.info(f"Syncing roles for guild: {guild.name} ({guild.id})")
+            
+            role_i = discord.utils.get(guild.roles, name="faction -I-")
+            role_ii = discord.utils.get(guild.roles, name="faction -II-")
+
+            if not role_i or not role_ii:
+                logger.warning(f"Skipping guild {guild.name} because faction roles ('faction -I-', 'faction -II-') were not found.")
+                continue
+
+            updated_members = 0
+            
+            for member in guild.members:
+                if member.bot or not member.nick:
+                    continue
+                    
+                match = id_pattern.search(member.nick)
+                if not match:
+                    continue
+                
+                torn_id = match.group(1)
+                faction_id = await get_user_faction(torn_id)
+                
+                if faction_id is None:
+                    continue
+                
+                await asyncio.sleep(0.6) # API rate limit
+
+                target_role_name = faction_map.get(faction_id)
+                roles_changed = False
+                
+                try:
+                    if target_role_name == "faction -I-":
+                        if role_ii in member.roles:
+                            await member.remove_roles(role_ii, reason="Auto faction sync")
+                            roles_changed = True
+                        if role_i not in member.roles:
+                            await member.add_roles(role_i, reason="Auto faction sync")
+                            roles_changed = True
+                    
+                    elif target_role_name == "faction -II-":
+                        if role_i in member.roles:
+                            await member.remove_roles(role_i, reason="Auto faction sync")
+                            roles_changed = True
+                        if role_ii not in member.roles:
+                            await member.add_roles(role_ii, reason="Auto faction sync")
+                            roles_changed = True
+                    
+                    else: # Not in either faction
+                        if role_i in member.roles:
+                            await member.remove_roles(role_i, reason="Auto faction sync")
+                            roles_changed = True
+                        if role_ii in member.roles:
+                            await member.remove_roles(role_ii, reason="Auto faction sync")
+                            roles_changed = True
+
+                    if roles_changed:
+                        updated_members += 1
+                        logger.info(f"Updated roles for {member.display_name} ({member.id}) in {guild.name}.")
+                        
+                except discord.Forbidden:
+                    logger.error(f"Permission error updating roles for {member.display_name} in {guild.name}.")
+                except Exception as e:
+                    logger.error(f"An unexpected error occurred while updating roles for {member.display_name}: {e}")
+
+            logger.info(f"Faction role sync complete for {guild.name}. Updated {updated_members} members.")
+
+        await asyncio.sleep(1800) # Wait 30 minutes
 
 async def get_ranked_war_data(faction_id: str = "53180") -> Optional[Dict]:
     """Get ranked war data from Torn API."""

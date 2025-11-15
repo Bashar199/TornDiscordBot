@@ -575,3 +575,537 @@ discord.app_commands.errors.CommandInvokeError: Command 'chain' raised an except
 2025-07-23 22:19:31,438 - discord - INFO - Successfully saved active chains to disk.
 2025-07-23 22:19:32,297 - root - INFO - Chain in channel 1267369188578820147 was cancelled. Stopping countdown.
 2025-07-23 22:19:32,299 - discord - INFO - Successfully saved active chains to disk.
+2025-11-15 20:06:34,024 - discord - ERROR - DISCORD_TOKEN not found in .env file
+2025-11-15 20:08:31,985 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-11-15 20:08:31,986 - discord - INFO - ChainBot initialized
+2025-11-15 20:08:31,995 - discord.client - INFO - logging in using static token
+2025-11-15 20:08:40,144 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 721ccea3c8a9220f18fd566ee86a9dfe).
+2025-11-15 20:08:42,177 - discord - INFO - Logged in as bot_batfrog#4676
+2025-11-15 20:08:42,179 - discord - INFO - config.json not found, starting with default configuration.
+2025-11-15 20:08:42,180 - discord - INFO - Attempting to load and resume chains from disk...
+2025-11-15 20:08:42,184 - discord - INFO - Starting ranked war monitoring for faction 53180
+2025-11-15 20:08:42,185 - discord - INFO - Current configuration: {'chain_notification_channel_id': None, 'war_notification_channel_id': None}
+2025-11-15 20:08:42,603 - discord - INFO - Synced 9 command(s)
+2025-11-15 20:08:59,341 - discord - INFO - Could not retrieve faction for Dumkid [3630680] (3630680). Skipping role assignment.
+2025-11-15 20:09:06,667 - discord - INFO - Could not retrieve faction for Tempxbk [2930776] (2930776). Skipping role assignment.
+2025-11-15 20:09:07,386 - discord - INFO - Could not retrieve faction for King_Aegir [3669893] (3669893). Skipping role assignment.
+2025-11-15 20:09:08,225 - discord - INFO - Could not retrieve faction for iiTrLxZa [2391561] (2391561). Skipping role assignment.
+2025-11-15 20:09:42,186 - discord - INFO - === Checking for ranked wars ===
+2025-11-15 20:09:42,187 - discord - INFO - Making API request to: https://api.torn.com/faction/53180?selections=rankedwars&key=dMkM6BK1T4Vei7P7...
+2025-11-15 20:09:42,850 - discord - INFO - API response status: 200
+2025-11-15 20:09:42,851 - discord - INFO - Raw API response: {
+  "rankedwars": {
+    "33044": {
+      "factions": {
+        "15239": {
+          "name": "S.C.A.R. DX Medical",
+          "score": 6820,
+          "chain": 0
+        },
+        "53180": {
+          "name": "DEAD WATCH",
+          "score": 1873,
+          "chain": 335
+        }
+      },
+      "war": {
+        "start": 1762624800,
+        "end": 1762718520,
+        "target": 4947,
+        "winner": 15239
+      }
+    },
+    "32480": {
+      "factions": {
+        "50951": {
+          "name": "The Gambino Family",
+          "score": 1835,
+          "chain": 0
+        },
+        "53180": {
+          "name": "DEAD WATCH",
+          "score": 5242,
+          "chain": 335
+        }
+      },
+      "war": {
+        "start": 1761418800,
+        "end": 1761475131,
+        "target": 3400,
+        "winner": 53180
+      }
+    },
+    "32039": {
+      "factions": {
+        "40121": {
+          "name": "Heart of the Dark",
+          "score": 7566,
+          "chain": 0
+        },
+        "53180": {
+          "name": "DEAD WATCH",
+          "score": 1264,
+          "chain": 335
+        }
+      },
+      "war": {
+        "start": 1760205600,
+        "end": 1760255966,
+        "target": 6300,
+        "winner": 40121
+      }
+    },
+    "31301": {
+      "factions": {
+        "51708": {
+          "name": "Tribunal Global Network",
+          "score": 8222,
+          "chain": 0
+        },
+        "53180": {
+          "name": "DEAD WATCH",
+          "score": 3081,
+          "chain": 335
+        }
+      },
+      "war": {
+        "start": 1758992400,
+        "end": 1759083938,
+        "target": 5096,
+        "winner": 51708
+      }
+    },
+    "30700": {
+      "factions": {
+        "48264": {
+          "name": "Yahoo&#8217;s Yahooligans",
+          "score": 4991,
+          "chain": 0
+        },
+        "53180": {
+          "name": "DEAD WATCH",
+          "score": 7667,
+          "chain": 335
+        }
+      },
+      "war": {
+        "start": 1757786400,
+        "end": 1757940012,
+        "target": 2673,
+        "winner": 53180
+      }
+    },
+    "29934": {
+      "factions": {
+        "50680": {
+          "name": "The Shack",
+          "score": 1774,
+          "chain": 31
+        },
+        "53180": {
+          "name": "DEAD WATCH",
+          "score": 5075,
+          "chain": 335
+        }
+      },
+      "war": {
+        "start": 1756497600,
+        "end": 1756561453,
+        "target": 3300,
+        "winner": 53180
+      }
+    },
+    "29135": {
+      "factions": {
+        "50723": {
+          "name": "Shaggers",
+          "score": 5592,
+          "chain": 0
+        },
+        "53180": {
+          "name": "DEAD WATCH",
+          "score": 1359,
+          "chain": 335
+        }
+      },
+      "war": {
+        "start": 1754762400,
+        "end": 1754867649,
+        "target": 4230,
+        "winner": 50723
+      }
+    },
+    "28408": {
+      "factions": {
+        "50946": {
+          "name": "Mandatory Hairstyles",
+          "score": 1034,
+          "chain": 0
+        },
+        "53180": {
+          "name": "DEAD WATCH",
+          "score": 4134,
+          "chain": 335
+        }
+      },
+      "war": {
+        "start": 1753552800,
+        "end": 1753587847,
+        "target": 3100,
+        "winner": 53180
+      }
+    },
+    "27934": {
+      "factions": {
+        "53180": {
+          "name": "DEAD WATCH",
+          "score": 2894,
+          "chain": 335
+        },
+        "53190": {
+          "name": "Kingdom of Sora",
+          "score": 197,
+          "chain": 0
+        }
+      },
+      "war": {
+        "start": 1752163200,
+        "end": 1752180653,
+        "target": 2500,
+        "winner": 53180
+      }
+    },
+    "26887": {
+      "factions": {
+        "50964": {
+          "name": "The Brothers In Arms",
+          "score": 1177,
+          "chain": 162
+        },
+        "53180": {
+          "name": "DEAD WATCH",
+          "score": 4178,
+          "chain": 335
+        }
+      },
+      "war": {
+        "start": 1750525200,
+        "end": 1750574063,
+        "target": 3000,
+        "winner": 53180
+      }
+    }
+  }
+}
+2025-11-15 20:09:42,856 - discord - INFO - Found 10 ranked wars in API response
+2025-11-15 20:09:42,858 - discord - INFO - Processing 10 wars from API. Current announced IDs: set()
+2025-11-15 20:09:42,859 - discord - INFO - Processing War ID: 33044 | Start: 2025-11-08 18:00:00+00:00 | End: 2025-11-09 20:02:00+00:00
+2025-11-15 20:09:42,860 - discord - INFO - War 33044 has already ended.
+2025-11-15 20:09:42,861 - discord - INFO - Processing War ID: 32480 | Start: 2025-10-25 19:00:00+00:00 | End: 2025-10-26 10:38:51+00:00
+2025-11-15 20:09:42,862 - discord - INFO - War 32480 has already ended.
+2025-11-15 20:09:42,864 - discord - INFO - Processing War ID: 32039 | Start: 2025-10-11 18:00:00+00:00 | End: 2025-10-12 07:59:26+00:00
+2025-11-15 20:09:42,865 - discord - INFO - War 32039 has already ended.
+2025-11-15 20:09:42,865 - discord - INFO - Processing War ID: 31301 | Start: 2025-09-27 17:00:00+00:00 | End: 2025-09-28 18:25:38+00:00
+2025-11-15 20:09:42,866 - discord - INFO - War 31301 has already ended.
+2025-11-15 20:09:42,867 - discord - INFO - Processing War ID: 30700 | Start: 2025-09-13 18:00:00+00:00 | End: 2025-09-15 12:40:12+00:00
+2025-11-15 20:09:42,869 - discord - INFO - War 30700 has already ended.
+2025-11-15 20:09:42,870 - discord - INFO - Processing War ID: 29934 | Start: 2025-08-29 20:00:00+00:00 | End: 2025-08-30 13:44:13+00:00
+2025-11-15 20:09:42,871 - discord - INFO - War 29934 has already ended.
+2025-11-15 20:09:42,871 - discord - INFO - Processing War ID: 29135 | Start: 2025-08-09 18:00:00+00:00 | End: 2025-08-10 23:14:09+00:00
+2025-11-15 20:09:42,872 - discord - INFO - War 29135 has already ended.
+2025-11-15 20:09:42,873 - discord - INFO - Processing War ID: 28408 | Start: 2025-07-26 18:00:00+00:00 | End: 2025-07-27 03:44:07+00:00
+2025-11-15 20:09:42,873 - discord - INFO - War 28408 has already ended.
+2025-11-15 20:09:42,875 - discord - INFO - Processing War ID: 27934 | Start: 2025-07-10 16:00:00+00:00 | End: 2025-07-10 20:50:53+00:00
+2025-11-15 20:09:42,875 - discord - INFO - War 27934 has already ended.
+2025-11-15 20:09:42,876 - discord - INFO - Processing War ID: 26887 | Start: 2025-06-21 17:00:00+00:00 | End: 2025-06-22 06:34:23+00:00
+2025-11-15 20:09:42,876 - discord - INFO - War 26887 has already ended.
+2025-11-15 20:10:42,886 - discord - INFO - === Checking for ranked wars ===
+2025-11-15 20:10:42,887 - discord - INFO - Making API request to: https://api.torn.com/faction/53180?selections=rankedwars&key=dMkM6BK1T4Vei7P7...
+2025-11-15 20:10:43,471 - discord - INFO - API response status: 200
+2025-11-15 20:10:43,472 - discord - INFO - Raw API response: {
+  "rankedwars": {
+    "33044": {
+      "factions": {
+        "15239": {
+          "name": "S.C.A.R. DX Medical",
+          "score": 6820,
+          "chain": 0
+        },
+        "53180": {
+          "name": "DEAD WATCH",
+          "score": 1873,
+          "chain": 335
+        }
+      },
+      "war": {
+        "start": 1762624800,
+        "end": 1762718520,
+        "target": 4947,
+        "winner": 15239
+      }
+    },
+    "32480": {
+      "factions": {
+        "50951": {
+          "name": "The Gambino Family",
+          "score": 1835,
+          "chain": 0
+        },
+        "53180": {
+          "name": "DEAD WATCH",
+          "score": 5242,
+          "chain": 335
+        }
+      },
+      "war": {
+        "start": 1761418800,
+        "end": 1761475131,
+        "target": 3400,
+        "winner": 53180
+      }
+    },
+    "32039": {
+      "factions": {
+        "40121": {
+          "name": "Heart of the Dark",
+          "score": 7566,
+          "chain": 0
+        },
+        "53180": {
+          "name": "DEAD WATCH",
+          "score": 1264,
+          "chain": 335
+        }
+      },
+      "war": {
+        "start": 1760205600,
+        "end": 1760255966,
+        "target": 6300,
+        "winner": 40121
+      }
+    },
+    "31301": {
+      "factions": {
+        "51708": {
+          "name": "Tribunal Global Network",
+          "score": 8222,
+          "chain": 0
+        },
+        "53180": {
+          "name": "DEAD WATCH",
+          "score": 3081,
+          "chain": 335
+        }
+      },
+      "war": {
+        "start": 1758992400,
+        "end": 1759083938,
+        "target": 5096,
+        "winner": 51708
+      }
+    },
+    "30700": {
+      "factions": {
+        "48264": {
+          "name": "Yahoo&#8217;s Yahooligans",
+          "score": 4991,
+          "chain": 0
+        },
+        "53180": {
+          "name": "DEAD WATCH",
+          "score": 7667,
+          "chain": 335
+        }
+      },
+      "war": {
+        "start": 1757786400,
+        "end": 1757940012,
+        "target": 2673,
+        "winner": 53180
+      }
+    },
+    "29934": {
+      "factions": {
+        "50680": {
+          "name": "The Shack",
+          "score": 1774,
+          "chain": 31
+        },
+        "53180": {
+          "name": "DEAD WATCH",
+          "score": 5075,
+          "chain": 335
+        }
+      },
+      "war": {
+        "start": 1756497600,
+        "end": 1756561453,
+        "target": 3300,
+        "winner": 53180
+      }
+    },
+    "29135": {
+      "factions": {
+        "50723": {
+          "name": "Shaggers",
+          "score": 5592,
+          "chain": 0
+        },
+        "53180": {
+          "name": "DEAD WATCH",
+          "score": 1359,
+          "chain": 335
+        }
+      },
+      "war": {
+        "start": 1754762400,
+        "end": 1754867649,
+        "target": 4230,
+        "winner": 50723
+      }
+    },
+    "28408": {
+      "factions": {
+        "50946": {
+          "name": "Mandatory Hairstyles",
+          "score": 1034,
+          "chain": 0
+        },
+        "53180": {
+          "name": "DEAD WATCH",
+          "score": 4134,
+          "chain": 335
+        }
+      },
+      "war": {
+        "start": 1753552800,
+        "end": 1753587847,
+        "target": 3100,
+        "winner": 53180
+      }
+    },
+    "27934": {
+      "factions": {
+        "53180": {
+          "name": "DEAD WATCH",
+          "score": 2894,
+          "chain": 335
+        },
+        "53190": {
+          "name": "Kingdom of Sora",
+          "score": 197,
+          "chain": 0
+        }
+      },
+      "war": {
+        "start": 1752163200,
+        "end": 1752180653,
+        "target": 2500,
+        "winner": 53180
+      }
+    },
+    "26887": {
+      "factions": {
+        "50964": {
+          "name": "The Brothers In Arms",
+          "score": 1177,
+          "chain": 164
+        },
+        "53180": {
+          "name": "DEAD WATCH",
+          "score": 4178,
+          "chain": 335
+        }
+      },
+      "war": {
+        "start": 1750525200,
+        "end": 1750574063,
+        "target": 3000,
+        "winner": 53180
+      }
+    }
+  }
+}
+2025-11-15 20:10:43,474 - discord - INFO - Found 10 ranked wars in API response
+2025-11-15 20:10:43,475 - discord - INFO - Processing 10 wars from API. Current announced IDs: set()
+2025-11-15 20:10:43,476 - discord - INFO - Processing War ID: 33044 | Start: 2025-11-08 18:00:00+00:00 | End: 2025-11-09 20:02:00+00:00
+2025-11-15 20:10:43,477 - discord - INFO - War 33044 has already ended.
+2025-11-15 20:10:43,477 - discord - INFO - Processing War ID: 32480 | Start: 2025-10-25 19:00:00+00:00 | End: 2025-10-26 10:38:51+00:00
+2025-11-15 20:10:43,477 - discord - INFO - War 32480 has already ended.
+2025-11-15 20:10:43,477 - discord - INFO - Processing War ID: 32039 | Start: 2025-10-11 18:00:00+00:00 | End: 2025-10-12 07:59:26+00:00
+2025-11-15 20:10:43,478 - discord - INFO - War 32039 has already ended.
+2025-11-15 20:10:43,478 - discord - INFO - Processing War ID: 31301 | Start: 2025-09-27 17:00:00+00:00 | End: 2025-09-28 18:25:38+00:00
+2025-11-15 20:10:43,478 - discord - INFO - War 31301 has already ended.
+2025-11-15 20:10:43,479 - discord - INFO - Processing War ID: 30700 | Start: 2025-09-13 18:00:00+00:00 | End: 2025-09-15 12:40:12+00:00
+2025-11-15 20:10:43,479 - discord - INFO - War 30700 has already ended.
+2025-11-15 20:10:43,479 - discord - INFO - Processing War ID: 29934 | Start: 2025-08-29 20:00:00+00:00 | End: 2025-08-30 13:44:13+00:00
+2025-11-15 20:10:43,479 - discord - INFO - War 29934 has already ended.
+2025-11-15 20:10:43,480 - discord - INFO - Processing War ID: 29135 | Start: 2025-08-09 18:00:00+00:00 | End: 2025-08-10 23:14:09+00:00
+2025-11-15 20:10:43,480 - discord - INFO - War 29135 has already ended.
+2025-11-15 20:10:43,480 - discord - INFO - Processing War ID: 28408 | Start: 2025-07-26 18:00:00+00:00 | End: 2025-07-27 03:44:07+00:00
+2025-11-15 20:10:43,480 - discord - INFO - War 28408 has already ended.
+2025-11-15 20:10:43,481 - discord - INFO - Processing War ID: 27934 | Start: 2025-07-10 16:00:00+00:00 | End: 2025-07-10 20:50:53+00:00
+2025-11-15 20:10:43,481 - discord - INFO - War 27934 has already ended.
+2025-11-15 20:10:43,482 - discord - INFO - Processing War ID: 26887 | Start: 2025-06-21 17:00:00+00:00 | End: 2025-06-22 06:34:23+00:00
+2025-11-15 20:10:43,482 - discord - INFO - War 26887 has already ended.
+2025-11-15 20:18:25,497 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-11-15 20:18:25,498 - discord - INFO - ChainBot initialized
+2025-11-15 20:18:25,508 - discord.client - INFO - logging in using static token
+2025-11-15 20:18:28,346 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 1f2f12cac3599fc67bc41d51876c2f3e).
+2025-11-15 20:18:30,361 - discord - INFO - Logged in as bot_batfrog#4676
+2025-11-15 20:18:30,364 - discord - INFO - config.json not found, starting with default configuration.
+2025-11-15 20:18:30,366 - discord - INFO - Attempting to load and resume chains from disk...
+2025-11-15 20:18:30,991 - discord - INFO - Synced 8 command(s)
+2025-11-15 20:19:11,591 - discord - INFO - Could not retrieve faction for Dumkid [3630680] (3630680). Skipping role assignment.
+2025-11-15 20:19:19,693 - discord - INFO - Could not retrieve faction for Tempxbk [2930776] (2930776). Skipping role assignment.
+2025-11-15 20:19:20,202 - discord - INFO - Could not retrieve faction for King_Aegir [3669893] (3669893). Skipping role assignment.
+2025-11-15 20:19:20,704 - discord - INFO - Could not retrieve faction for iiTrLxZa [2391561] (2391561). Skipping role assignment.
+2025-11-15 20:28:07,533 - discord.client - WARNING - PyNaCl is not installed, voice will NOT be supported
+2025-11-15 20:28:07,534 - discord - INFO - ChainBot initialized
+2025-11-15 20:28:07,546 - discord.client - INFO - logging in using static token
+2025-11-15 20:28:10,399 - discord.gateway - INFO - Shard ID None has connected to Gateway (Session ID: 174f8f819c4be8254da05eb48ba69b49).
+2025-11-15 20:28:12,422 - discord - INFO - Logged in as bot_batfrog#4676
+2025-11-15 20:28:12,423 - discord - INFO - config.json not found, starting with default configuration.
+2025-11-15 20:28:12,424 - discord - INFO - Attempting to load and resume chains from disk...
+2025-11-15 20:28:12,427 - discord - INFO - Starting periodic faction role synchronization...
+2025-11-15 20:28:12,428 - discord - INFO - Syncing roles for guild: bashar server (712464276178337924)
+2025-11-15 20:28:12,430 - discord - WARNING - Skipping guild bashar server because faction roles ('faction -I-', 'faction -II-') were not found.
+2025-11-15 20:28:12,430 - discord - INFO - Syncing roles for guild: Bounty Hunters' Guild (1330052338584518747)
+2025-11-15 20:28:13,006 - discord - INFO - Synced 7 command(s)
+2025-11-15 20:28:37,381 - discord - INFO - Faction role sync complete for Bounty Hunters' Guild. Updated 0 members.
+2025-11-15 20:38:12,964 - discord - WARNING - Chain detected, but no notification channel is set.
+2025-11-15 20:48:13,633 - discord - WARNING - Chain detected, but no notification channel is set.
+2025-11-15 20:58:14,343 - discord - WARNING - Chain detected, but no notification channel is set.
+2025-11-15 20:58:37,393 - discord - INFO - Starting periodic faction role synchronization...
+2025-11-15 20:58:37,415 - discord - INFO - Syncing roles for guild: bashar server (712464276178337924)
+2025-11-15 20:58:37,421 - discord - WARNING - Skipping guild bashar server because faction roles ('faction -I-', 'faction -II-') were not found.
+2025-11-15 20:58:37,422 - discord - INFO - Syncing roles for guild: Bounty Hunters' Guild (1330052338584518747)
+2025-11-15 20:59:03,307 - discord - INFO - Faction role sync complete for Bounty Hunters' Guild. Updated 0 members.
+2025-11-15 21:08:15,013 - discord - WARNING - Chain detected, but no notification channel is set.
+2025-11-15 21:18:15,533 - discord - WARNING - Chain detected, but no notification channel is set.
+2025-11-15 21:28:16,076 - discord - WARNING - Chain detected, but no notification channel is set.
+2025-11-15 21:29:03,314 - discord - INFO - Starting periodic faction role synchronization...
+2025-11-15 21:29:03,316 - discord - INFO - Syncing roles for guild: bashar server (712464276178337924)
+2025-11-15 21:29:03,323 - discord - WARNING - Skipping guild bashar server because faction roles ('faction -I-', 'faction -II-') were not found.
+2025-11-15 21:29:03,323 - discord - INFO - Syncing roles for guild: Bounty Hunters' Guild (1330052338584518747)
+2025-11-15 21:29:27,111 - discord - INFO - Faction role sync complete for Bounty Hunters' Guild. Updated 0 members.
+2025-11-15 21:38:16,738 - discord - WARNING - Chain detected, but no notification channel is set.
+2025-11-15 21:48:17,288 - discord - WARNING - Chain detected, but no notification channel is set.
+2025-11-15 21:58:17,854 - discord - WARNING - Chain detected, but no notification channel is set.
+2025-11-15 21:58:40,509 - discord.gateway - INFO - Shard ID None has successfully RESUMED session 174f8f819c4be8254da05eb48ba69b49.
+2025-11-15 21:59:27,114 - discord - INFO - Starting periodic faction role synchronization...
+2025-11-15 21:59:27,121 - discord - INFO - Syncing roles for guild: bashar server (712464276178337924)
+2025-11-15 21:59:27,122 - discord - WARNING - Skipping guild bashar server because faction roles ('faction -I-', 'faction -II-') were not found.
+2025-11-15 21:59:27,122 - discord - INFO - Syncing roles for guild: Bounty Hunters' Guild (1330052338584518747)
+2025-11-15 21:59:51,618 - discord - INFO - Faction role sync complete for Bounty Hunters' Guild. Updated 0 members.
+2025-11-15 22:08:18,408 - discord - WARNING - Chain detected, but no notification channel is set.
+2025-11-15 22:18:18,955 - discord - WARNING - Chain detected, but no notification channel is set.
+2025-11-15 22:28:19,508 - discord - WARNING - Chain detected, but no notification channel is set.
+2025-11-15 22:29:51,639 - discord - INFO - Starting periodic faction role synchronization...
+2025-11-15 22:29:51,641 - discord - INFO - Syncing roles for guild: bashar server (712464276178337924)
+2025-11-15 22:29:51,643 - discord - WARNING - Skipping guild bashar server because faction roles ('faction -I-', 'faction -II-') were not found.
+2025-11-15 22:29:51,644 - discord - INFO - Syncing roles for guild: Bounty Hunters' Guild (1330052338584518747)
+2025-11-15 22:30:15,453 - discord - INFO - Faction role sync complete for Bounty Hunters' Guild. Updated 0 members.
+2025-11-15 22:38:20,088 - discord - WARNING - Chain detected, but no notification channel is set.
+2025-11-15 22:44:56,338 - discord.gateway - INFO - Shard ID None has successfully RESUMED session 174f8f819c4be8254da05eb48ba69b49.
+2025-11-15 22:48:20,815 - discord - WARNING - Chain detected, but no notification channel is set.
