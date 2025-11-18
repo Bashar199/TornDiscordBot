@@ -548,15 +548,20 @@ def check_duplicate_nickname(guild: discord.Guild, new_nickname: str, current_us
     
     return False, None
 
-async def get_user_faction(user_id: str) -> Optional[int]:
-    """Gets the faction ID for a given Torn user ID."""
+async def get_user_faction(user_id: str) -> Tuple[Optional[int], bool]:
+    """
+    Gets the faction ID for a given Torn user ID.
+    Returns (faction_id, api_success) where:
+    - faction_id: The faction ID if user is in a faction, None if not in a faction, None if API error
+    - api_success: True if API call succeeded, False if there was an error
+    """
     try:
         async with aiohttp.ClientSession() as session:
             url = f"https://api.torn.com/user/{user_id}?selections=profile&key={torn_api_key}"
             async with session.get(url) as response:
                 if response.status != 200:
                     logger.error(f"Failed to get user data for {user_id}. Status: {response.status}")
-                    return None
+                    return None, False
                 
                 data = await response.json()
                 
@@ -564,15 +569,16 @@ async def get_user_faction(user_id: str) -> Optional[int]:
                     # Don't log "User not found" as an error, it's expected for old IDs
                     if data['error']['code'] != 2:
                          logger.error(f"Torn API error for user {user_id}: {data['error']['error']}")
-                    return None
+                    return None, False
                 
                 faction_info = data.get('faction', {})
                 faction_id = faction_info.get('faction_id')
-                return int(faction_id) if faction_id and faction_id != 0 else None
+                # If we got valid data, api_success is True, even if user has no faction
+                return (int(faction_id) if faction_id and faction_id != 0 else None), True
                 
     except Exception as e:
         logger.error(f"Error getting user faction for {user_id}: {e}")
-        return None
+        return None, False
 
 class ChainButton(Button):
     def __init__(self, style: discord.ButtonStyle, label: str, is_join: bool):
@@ -1194,14 +1200,15 @@ async def sync_faction_roles_periodically():
                     continue
                 
                 torn_id = match.group(1)
-                faction_id = await get_user_faction(torn_id)
+                faction_id, api_success = await get_user_faction(torn_id)
                 
-                if faction_id is None:
+                # Skip if API call failed (don't remove roles due to temporary API errors)
+                if not api_success:
                     continue
                 
                 await asyncio.sleep(0.6) # API rate limit
 
-                target_role_name = faction_map.get(faction_id)
+                target_role_name = faction_map.get(faction_id) if faction_id else None
                 roles_changed = False
                 
                 try:
@@ -1221,7 +1228,7 @@ async def sync_faction_roles_periodically():
                             await member.add_roles(role_ii, reason="Auto faction sync")
                             roles_changed = True
                     
-                    else: # Not in either faction
+                    else: # Not in either faction (faction_id is None but API call succeeded)
                         if role_i in member.roles:
                             await member.remove_roles(role_i, reason="Auto faction sync")
                             roles_changed = True
