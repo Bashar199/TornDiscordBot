@@ -9,7 +9,7 @@ import asyncio
 import datetime
 import re
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict, Set, Tuple
+from typing import Any, List, Optional, Dict, Set, Tuple
 from discord.ui import Button, View
 import aiohttp
 import json
@@ -28,6 +28,12 @@ logger.setLevel(logging.INFO)  # Set Discord logger level
 
 # --- Persistence Setup ---
 CHAIN_DATA_FILE = "active_chains.json"
+OC_STATE_FILE = "oc_monitor_state.json"
+
+DEFAULT_OC_FACTION_IDS = [53180]
+DEFAULT_OC_REMINDER_HOURS = [12, 24]
+OC_ACTIVE_STATUSES = {"recruiting", "planning", "available"}
+OC_FINISHED_STATUSES = {"successful", "failure", "failed", "expired", "completed"}
 
 # Load environment variables
 load_dotenv()
@@ -56,6 +62,11 @@ class ChainBot(commands.Bot):
         self.config = {}
         self.chain_checker_started = False
         self.faction_role_sync_started = False
+        self.oc_monitor_started = False
+        self.oc_known_statuses: Dict[str, str] = {}
+        self.oc_reminders_sent: Set[str] = set()
+        self.oc_first_seen: Dict[str, int] = {}
+        self.oc_active_counts: Dict[int, Optional[int]] = {}
         logger.info("ChainBot initialized")
 
 bot = ChainBot()
@@ -69,16 +80,25 @@ async def load_config():
             bot.config = json.load(f)
             # Ensure new keys are present
             bot.config.setdefault("chain_notification_channel_id", None)
+            bot.config.setdefault("oc_notification_channel_id", None)
+            bot.config.setdefault("oc_faction_ids", DEFAULT_OC_FACTION_IDS)
+            bot.config.setdefault("oc_reminder_hours", DEFAULT_OC_REMINDER_HOURS)
             logger.info("Configuration loaded from config.json.")
     except FileNotFoundError:
         logger.info("config.json not found, starting with default configuration.")
         bot.config = {
-            "chain_notification_channel_id": None
+            "chain_notification_channel_id": None,
+            "oc_notification_channel_id": None,
+            "oc_faction_ids": DEFAULT_OC_FACTION_IDS,
+            "oc_reminder_hours": DEFAULT_OC_REMINDER_HOURS,
         }
     except json.JSONDecodeError:
         logger.error("Could not decode config.json. Starting with default configuration.")
         bot.config = {
-            "chain_notification_channel_id": None
+            "chain_notification_channel_id": None,
+            "oc_notification_channel_id": None,
+            "oc_faction_ids": DEFAULT_OC_FACTION_IDS,
+            "oc_reminder_hours": DEFAULT_OC_REMINDER_HOURS,
         }
 
 async def save_config():
@@ -89,6 +109,47 @@ async def save_config():
         logger.info("Configuration saved to config.json.")
     except Exception as e:
         logger.error(f"Failed to save configuration: {e}")
+
+
+async def load_oc_state():
+    """Loads persisted organized crime monitor state."""
+    try:
+        with open(OC_STATE_FILE, 'r') as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        logger.info("No oc_monitor_state.json file found. Starting fresh.")
+        return
+    except json.JSONDecodeError:
+        logger.error("Could not decode oc_monitor_state.json. Starting fresh.")
+        return
+
+    bot.oc_known_statuses = {
+        str(crime_id): str(status).lower()
+        for crime_id, status in data.get("known_statuses", {}).items()
+    }
+    bot.oc_reminders_sent = set(data.get("reminders_sent", []))
+    bot.oc_first_seen = {
+        str(crime_id): int(timestamp)
+        for crime_id, timestamp in data.get("first_seen", {}).items()
+    }
+    logger.info("Organized crime monitor state loaded.")
+
+
+async def save_oc_state():
+    """Persists organized crime monitor state."""
+    try:
+        with open(OC_STATE_FILE, 'w') as f:
+            json.dump(
+                {
+                    "known_statuses": bot.oc_known_statuses,
+                    "reminders_sent": sorted(bot.oc_reminders_sent),
+                    "first_seen": bot.oc_first_seen,
+                },
+                f,
+                indent=4
+            )
+    except Exception as e:
+        logger.error(f"Failed to save organized crime monitor state: {e}")
 
 
 async def save_active_chains():
@@ -165,6 +226,7 @@ async def load_and_resume_chains():
 async def on_ready():
     logger.info(f"Logged in as {bot.user}")
     await load_config()  # Load configuration
+    await load_oc_state()
     if not bot.persistent_views_loaded:
         await load_and_resume_chains()
         bot.persistent_views_loaded = True
@@ -176,6 +238,10 @@ async def on_ready():
     if not bot.faction_role_sync_started:
         asyncio.create_task(sync_faction_roles_periodically())
         bot.faction_role_sync_started = True
+
+    if not bot.oc_monitor_started:
+        asyncio.create_task(check_organized_crimes_periodically())
+        bot.oc_monitor_started = True
         
     try:
         synced = await bot.tree.sync()
@@ -579,6 +645,363 @@ async def get_user_faction(user_id: str) -> Tuple[Optional[int], bool]:
     except Exception as e:
         logger.error(f"Error getting user faction for {user_id}: {e}")
         return None, False
+
+
+def get_configured_oc_faction_ids() -> List[int]:
+    """Returns configured faction IDs for organized crime monitoring."""
+    raw_faction_ids = bot.config.get("oc_faction_ids", DEFAULT_OC_FACTION_IDS)
+    faction_ids: List[int] = []
+
+    if isinstance(raw_faction_ids, list):
+        for faction_id in raw_faction_ids:
+            try:
+                faction_ids.append(int(faction_id))
+            except (TypeError, ValueError):
+                logger.warning(f"Ignoring invalid OC faction ID in config: {faction_id}")
+
+    return faction_ids or DEFAULT_OC_FACTION_IDS
+
+
+def get_configured_oc_reminder_hours() -> List[int]:
+    """Returns configured reminder hours for organized crime monitoring."""
+    raw_hours = bot.config.get("oc_reminder_hours", DEFAULT_OC_REMINDER_HOURS)
+    reminder_hours: List[int] = []
+
+    if isinstance(raw_hours, list):
+        for hour in raw_hours:
+            try:
+                parsed_hour = int(hour)
+            except (TypeError, ValueError):
+                logger.warning(f"Ignoring invalid OC reminder hour in config: {hour}")
+                continue
+
+            if parsed_hour > 0:
+                reminder_hours.append(parsed_hour)
+
+    return sorted(set(reminder_hours)) or DEFAULT_OC_REMINDER_HOURS
+
+
+def normalize_oc_status(status: Any) -> str:
+    return str(status or "unknown").strip().lower()
+
+
+async def get_organized_crimes(faction_id: int) -> Optional[List[Dict[str, Any]]]:
+    """Get organized crime data from Torn API.
+
+    Torn has exposed crimes through multiple faction API shapes, so this tries
+    the v2 crimes endpoint first and then falls back to the legacy selection.
+    """
+    urls = [
+        f"https://api.torn.com/v2/faction/{faction_id}/crimes?cat=all&sort=DESC&key={torn_api_key}",
+        f"https://api.torn.com/v2/faction/crimes?cat=all&sort=DESC&key={torn_api_key}",
+        f"https://api.torn.com/v2/faction/{faction_id}?selections=crimes&cat=all&sort=DESC&key={torn_api_key}",
+        f"https://api.torn.com/faction/{faction_id}?selections=crimes&key={torn_api_key}",
+    ]
+
+    async with aiohttp.ClientSession() as session:
+        for url in urls:
+            try:
+                logger.info(f"Making organized crime API request to: {url[:90]}...")
+                async with session.get(url) as response:
+                    if response.status == 404:
+                        continue
+                    if response.status != 200:
+                        logger.error(f"Organized crime API request failed with status {response.status}")
+                        continue
+
+                    data = await response.json()
+                    if 'error' in data:
+                        logger.error(f"Organized crime API error: {data['error'].get('error', data['error'])}")
+                        continue
+
+                    crimes = data.get("crimes")
+                    if crimes is None:
+                        continue
+                    if isinstance(crimes, dict):
+                        return [crime for crime in crimes.values() if isinstance(crime, dict)]
+                    if isinstance(crimes, list):
+                        return [crime for crime in crimes if isinstance(crime, dict)]
+            except Exception as e:
+                logger.error(f"Organized crime data error for faction {faction_id}: {e}")
+
+    return None
+
+
+def get_crime_id(crime: Dict[str, Any]) -> str:
+    return str(crime.get("id") or crime.get("crime_id") or crime.get("previous_crime_id") or "unknown")
+
+
+def get_crime_display_name(crime: Dict[str, Any]) -> str:
+    return str(crime.get("name") or crime.get("crime") or "Organized Crime")
+
+
+def get_crime_age_seconds(crime_key: str, crime: Dict[str, Any]) -> int:
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+    created_at = crime.get("created_at") or crime.get("created")
+
+    try:
+        if created_at:
+            return max(0, now_ts - int(created_at))
+    except (TypeError, ValueError):
+        pass
+
+    first_seen = bot.oc_first_seen.setdefault(crime_key, now_ts)
+    return max(0, now_ts - int(first_seen))
+
+
+def get_member_by_torn_id(guild: discord.Guild, torn_id: str) -> Optional[discord.Member]:
+    id_pattern = re.compile(r'\[(\d+)\]$')
+
+    for member in guild.members:
+        if member.bot:
+            continue
+
+        for name in (member.nick, member.display_name):
+            if not name:
+                continue
+            match = id_pattern.search(name)
+            if match and match.group(1) == torn_id:
+                return member
+
+    return None
+
+
+def get_oc_unjoined_slots(crime: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], List[str]]:
+    """Returns assigned users who have not joined and any unfilled slot labels."""
+    missing_users: List[Dict[str, Any]] = []
+    open_slots: List[str] = []
+
+    for slot in crime.get("slots", []) or []:
+        if not isinstance(slot, dict):
+            continue
+
+        position = str(
+            slot.get("position")
+            or slot.get("position_name")
+            or slot.get("name")
+            or "Open slot"
+        )
+        user = slot.get("user")
+
+        if not user:
+            open_slots.append(position)
+            continue
+
+        if not isinstance(user, dict):
+            continue
+
+        joined_at = user.get("joined_at")
+        user_id = user.get("id") or user.get("user_id")
+        if user_id and not joined_at:
+            missing_users.append({
+                "id": str(user_id),
+                "position": position,
+            })
+
+    return missing_users, open_slots
+
+
+def build_oc_summary(crime: Dict[str, Any]) -> str:
+    status = normalize_oc_status(crime.get("status"))
+    parts = [
+        f"Crime: {get_crime_display_name(crime)}",
+        f"Status: {status}",
+    ]
+
+    for field_name, label in (
+        ("created_at", "Created"),
+        ("ready_at", "Ready"),
+        ("planning_at", "Planning"),
+        ("executed_at", "Executed"),
+        ("expired_at", "Expires"),
+    ):
+        timestamp = crime.get(field_name)
+        if timestamp:
+            try:
+                parts.append(f"{label}: <t:{int(timestamp)}:R>")
+            except (TypeError, ValueError):
+                pass
+
+    return "\n".join(parts)
+
+
+async def send_oc_dm(member: discord.Member, crime: Dict[str, Any], hour: int):
+    try:
+        await member.send(
+            f"OC reminder: {get_crime_display_name(crime)} still needs you to join. "
+            f"This is the {hour} hour reminder."
+        )
+    except discord.Forbidden:
+        logger.info(f"Could not DM OC reminder to {member.display_name} ({member.id}).")
+    except Exception as e:
+        logger.error(f"Failed to send OC reminder DM to {member.display_name}: {e}")
+
+
+async def send_oc_message(channel: discord.abc.Messageable, title: str, description: str, color: discord.Color):
+    embed = discord.Embed(
+        title=title,
+        description=description,
+        color=color,
+        timestamp=datetime.now(timezone.utc)
+    )
+    await channel.send(embed=embed)
+
+
+async def handle_oc_reminders(channel: discord.abc.Messageable, faction_id: int, crime: Dict[str, Any]):
+    crime_id = get_crime_id(crime)
+    crime_key = f"{faction_id}:{crime_id}"
+    missing_users, open_slots = get_oc_unjoined_slots(crime)
+
+    if not missing_users and not open_slots:
+        return
+
+    age_seconds = get_crime_age_seconds(crime_key, crime)
+    guild = channel.guild if isinstance(channel, (discord.TextChannel, discord.Thread)) else None
+
+    for reminder_hour in get_configured_oc_reminder_hours():
+        if age_seconds < reminder_hour * 3600:
+            continue
+
+        reminder_key = f"{crime_key}:{reminder_hour}"
+        if reminder_key in bot.oc_reminders_sent:
+            continue
+
+        mentions: List[str] = []
+        missing_lines: List[str] = []
+        for missing_user in missing_users:
+            torn_id = missing_user["id"]
+            member = get_member_by_torn_id(guild, torn_id) if guild else None
+            mention = member.mention if member else f"Torn ID {torn_id}"
+            mentions.append(mention)
+            missing_lines.append(f"- {mention}: {missing_user['position']}")
+            if member:
+                await send_oc_dm(member, crime, reminder_hour)
+
+        open_slot_lines = [f"- {slot}" for slot in open_slots[:10]]
+        description_parts = [
+            f"Faction {faction_id} has an OC waiting after {reminder_hour} hours.",
+            build_oc_summary(crime),
+        ]
+
+        if missing_lines:
+            description_parts.append("Missing assigned members:\n" + "\n".join(missing_lines[:20]))
+        if open_slot_lines:
+            description_parts.append("Open slots:\n" + "\n".join(open_slot_lines))
+
+        content = " ".join(mentions[:20])
+        try:
+            if content:
+                await channel.send(content)
+            await send_oc_message(
+                channel,
+                f"OC Reminder - {reminder_hour}h",
+                "\n\n".join(description_parts),
+                discord.Color.orange()
+            )
+            bot.oc_reminders_sent.add(reminder_key)
+            await save_oc_state()
+        except discord.Forbidden:
+            logger.error("Missing permissions to send organized crime reminder.")
+        except Exception as e:
+            logger.error(f"Failed to send organized crime reminder: {e}")
+
+
+async def check_organized_crimes_periodically():
+    """Periodically checks organized crimes and sends alerts/reminders."""
+    await bot.wait_until_ready()
+    logger.info("Starting organized crime monitoring.")
+
+    while not bot.is_closed():
+        channel_id = bot.config.get("oc_notification_channel_id")
+        channel = bot.get_channel(channel_id) if channel_id else None
+        if not channel:
+            logger.warning("OC monitor is enabled, but no OC notification channel is set.")
+            await asyncio.sleep(600)
+            continue
+
+        state_changed = False
+
+        for faction_id in get_configured_oc_faction_ids():
+            crimes = await get_organized_crimes(faction_id)
+            if crimes is None:
+                continue
+
+            active_crimes = [
+                crime for crime in crimes
+                if normalize_oc_status(crime.get("status")) in OC_ACTIVE_STATUSES
+            ]
+            current_active_count = len(active_crimes)
+            previous_active_count = bot.oc_active_counts.get(faction_id)
+            bot.oc_active_counts[faction_id] = current_active_count
+
+            if previous_active_count is not None and previous_active_count > 0 and current_active_count == 0:
+                try:
+                    await send_oc_message(
+                        channel,
+                        "No Organized Crimes Left",
+                        f"Faction {faction_id} has no active, recruiting, planning, or available OCs left.",
+                        discord.Color.red()
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to send empty organized crime alert: {e}")
+
+            current_keys: Set[str] = set()
+            for crime in crimes:
+                crime_id = get_crime_id(crime)
+                if crime_id == "unknown":
+                    continue
+
+                status = normalize_oc_status(crime.get("status"))
+                crime_key = f"{faction_id}:{crime_id}"
+                current_keys.add(crime_key)
+                bot.oc_first_seen.setdefault(crime_key, int(datetime.now(timezone.utc).timestamp()))
+
+                previous_status = bot.oc_known_statuses.get(crime_key)
+                if previous_status != status:
+                    bot.oc_known_statuses[crime_key] = status
+                    state_changed = True
+
+                is_new_crime = previous_status is None
+                became_finished = (
+                    previous_status is not None
+                    and previous_status not in OC_FINISHED_STATUSES
+                    and status in OC_FINISHED_STATUSES
+                )
+
+                try:
+                    if is_new_crime and status in OC_ACTIVE_STATUSES:
+                        await send_oc_message(
+                            channel,
+                            "Organized Crime Needs Members",
+                            f"Faction {faction_id} has an OC to join.\n\n{build_oc_summary(crime)}",
+                            discord.Color.blue()
+                        )
+                    elif became_finished:
+                        await send_oc_message(
+                            channel,
+                            "Organized Crime Finished",
+                            f"Faction {faction_id} finished an OC. Check for the next one to join.\n\n{build_oc_summary(crime)}",
+                            discord.Color.green()
+                        )
+                except Exception as e:
+                    logger.error(f"Failed to send organized crime status alert: {e}")
+
+                if status in OC_ACTIVE_STATUSES:
+                    await handle_oc_reminders(channel, faction_id, crime)
+
+            # Keep remembered state bounded to current API data plus recent known history.
+            if current_keys:
+                stale_keys = [
+                    key for key in bot.oc_first_seen
+                    if key.startswith(f"{faction_id}:") and key not in current_keys
+                ]
+                for stale_key in stale_keys[:100]:
+                    bot.oc_first_seen.pop(stale_key, None)
+
+        if state_changed:
+            await save_oc_state()
+
+        await asyncio.sleep(600)
 
 class ChainButton(Button):
     def __init__(self, style: discord.ButtonStyle, label: str, is_join: bool):
@@ -1146,8 +1569,10 @@ async def show_config(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
     
     chain_channel_id = bot.config.get("chain_notification_channel_id")
+    oc_channel_id = bot.config.get("oc_notification_channel_id")
     
     chain_channel = bot.get_channel(chain_channel_id) if chain_channel_id else None
+    oc_channel = bot.get_channel(oc_channel_id) if oc_channel_id else None
     
     embed = discord.Embed(
         title="Bot Configuration",
@@ -1160,7 +1585,178 @@ async def show_config(interaction: discord.Interaction):
         value=f"{chain_channel.mention if chain_channel else 'Not Set'}\nID: `{chain_channel_id}`",
         inline=False
     )
+
+    embed.add_field(
+        name="OC Notification Channel",
+        value=f"{oc_channel.mention if oc_channel else 'Not Set'}\nID: `{oc_channel_id}`",
+        inline=False
+    )
+
+    embed.add_field(
+        name="OC Factions",
+        value=", ".join(str(faction_id) for faction_id in get_configured_oc_faction_ids()),
+        inline=False
+    )
+
+    embed.add_field(
+        name="OC Reminder Hours",
+        value=", ".join(str(hour) for hour in get_configured_oc_reminder_hours()),
+        inline=False
+    )
     
+    await interaction.followup.send(embed=embed, ephemeral=True)
+
+
+@bot.tree.command(name="set-oc-channel", description="Set the organized crime notification channel.")
+@app_commands.guild_only()
+@app_commands.checks.has_permissions(administrator=True)
+async def set_oc_channel(interaction: discord.Interaction, channel: Optional[discord.TextChannel] = None):
+    await interaction.response.defer(ephemeral=True)
+
+    target_channel = channel or interaction.channel
+    if not isinstance(target_channel, (discord.TextChannel, discord.Thread)):
+        await interaction.followup.send(
+            "OC notifications must be sent to a text channel or thread.",
+            ephemeral=True
+        )
+        return
+
+    bot.config["oc_notification_channel_id"] = target_channel.id
+    await save_config()
+    await interaction.followup.send(
+        f"OC notification channel set to {target_channel.mention}.",
+        ephemeral=True
+    )
+
+
+@bot.tree.command(name="set-oc-factions", description="Set faction IDs monitored for organized crimes.")
+@app_commands.describe(faction_ids="Comma-separated faction IDs, for example: 53180,55332")
+@app_commands.guild_only()
+@app_commands.checks.has_permissions(administrator=True)
+async def set_oc_factions(interaction: discord.Interaction, faction_ids: str):
+    await interaction.response.defer(ephemeral=True)
+
+    parsed_faction_ids: List[int] = []
+    for raw_id in faction_ids.split(","):
+        raw_id = raw_id.strip()
+        if not raw_id:
+            continue
+        try:
+            parsed_faction_ids.append(int(raw_id))
+        except ValueError:
+            await interaction.followup.send(
+                f"Invalid faction ID: {raw_id}",
+                ephemeral=True
+            )
+            return
+
+    if not parsed_faction_ids:
+        await interaction.followup.send(
+            "Please provide at least one faction ID.",
+            ephemeral=True
+        )
+        return
+
+    bot.config["oc_faction_ids"] = sorted(set(parsed_faction_ids))
+    await save_config()
+    await interaction.followup.send(
+        "OC factions set to: " + ", ".join(str(faction_id) for faction_id in bot.config["oc_faction_ids"]),
+        ephemeral=True
+    )
+
+
+@bot.tree.command(name="set-oc-reminders", description="Set organized crime reminder hours.")
+@app_commands.describe(hours="Comma-separated hours, for example: 12,24")
+@app_commands.guild_only()
+@app_commands.checks.has_permissions(administrator=True)
+async def set_oc_reminders(interaction: discord.Interaction, hours: str):
+    await interaction.response.defer(ephemeral=True)
+
+    parsed_hours: List[int] = []
+    for raw_hour in hours.split(","):
+        raw_hour = raw_hour.strip()
+        if not raw_hour:
+            continue
+        try:
+            parsed_hour = int(raw_hour)
+        except ValueError:
+            await interaction.followup.send(
+                f"Invalid reminder hour: {raw_hour}",
+                ephemeral=True
+            )
+            return
+
+        if parsed_hour <= 0 or parsed_hour > 168:
+            await interaction.followup.send(
+                "Reminder hours must be between 1 and 168.",
+                ephemeral=True
+            )
+            return
+        parsed_hours.append(parsed_hour)
+
+    if not parsed_hours:
+        await interaction.followup.send(
+            "Please provide at least one reminder hour.",
+            ephemeral=True
+        )
+        return
+
+    bot.config["oc_reminder_hours"] = sorted(set(parsed_hours))
+    await save_config()
+    await interaction.followup.send(
+        "OC reminders set to: " + ", ".join(str(hour) for hour in bot.config["oc_reminder_hours"]) + " hours",
+        ephemeral=True
+    )
+
+
+@bot.tree.command(name="oc-status", description="Show current organized crime monitor status.")
+@app_commands.guild_only()
+async def oc_status(interaction: discord.Interaction):
+    await interaction.response.defer(ephemeral=True)
+
+    faction_ids = get_configured_oc_faction_ids()
+    embed = discord.Embed(
+        title="Organized Crime Status",
+        color=discord.Color.blue(),
+        timestamp=datetime.now(timezone.utc)
+    )
+
+    for faction_id in faction_ids:
+        crimes = await get_organized_crimes(faction_id)
+        if crimes is None:
+            embed.add_field(
+                name=f"Faction {faction_id}",
+                value="Could not retrieve OC data.",
+                inline=False
+            )
+            continue
+
+        active_crimes = [
+            crime for crime in crimes
+            if normalize_oc_status(crime.get("status")) in OC_ACTIVE_STATUSES
+        ]
+        if not active_crimes:
+            embed.add_field(
+                name=f"Faction {faction_id}",
+                value="No active, recruiting, planning, or available OCs.",
+                inline=False
+            )
+            continue
+
+        lines = []
+        for crime in active_crimes[:5]:
+            missing_users, open_slots = get_oc_unjoined_slots(crime)
+            lines.append(
+                f"{get_crime_display_name(crime)} - {normalize_oc_status(crime.get('status'))} "
+                f"({len(missing_users)} missing, {len(open_slots)} open)"
+            )
+
+        embed.add_field(
+            name=f"Faction {faction_id}",
+            value="\n".join(lines),
+            inline=False
+        )
+
     await interaction.followup.send(embed=embed, ephemeral=True)
 
 async def sync_faction_roles_periodically():

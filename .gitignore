@@ -125,6 +125,7 @@ dmypy.json
 # Project specific
 discord.log
 active_chains.json
+oc_monitor_state.json
 
 # IDE files
 .vscode/
